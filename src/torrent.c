@@ -1,3 +1,5 @@
+#define LIBSSH_STATIC 1
+#include "libssh/libssh.h"
 #include "bencode.c"
 
 i32 countNumBytesInFile(FILE *file, size_t *outCount); 
@@ -5,6 +7,14 @@ i32 allocMemoryAndLoadFile(char *fileName, u8 **outMemory, size_t *outMemorySize
 
 i32 main(i32 argc, char **argv)
 {
+	ssh_session ssh_connection = ssh_new();
+	if (ssh_connection == NULL)
+	{
+		fprintf(stderr, "failed to initialize ssh\n");
+	}
+
+	ssh_free(ssh_connection);
+
 	if (argc < 2)
 	{
 		fprintf(stderr, "no .torrent file specified\n");
