@@ -9,7 +9,7 @@ u8_array bencoded_dictionary = {
 
 void fprint_u8_array(FILE *stream, u8_array array)
 {
-	fprintf(stream, "{\n\tdata: %p,\n\tsize: %ld\n}\n", (void *)array.data, array.size);
+	fprintf(stream, "{\n\tdata: %p,\n\tsize: %zd\n}\n", (void *)array.data, array.size);
 }
 
 i32 verify_u8_arrays_are_equal(u8_array actual, u8_array expected)
@@ -132,7 +132,7 @@ i32 test_get_value_for_key()
 		return 1;
 	}
 	return 0;
-	
+
 }
 
 i32 test_bencode()
@@ -150,4 +150,3 @@ i32 test_bencode()
 	}
 	return errors;
 }
-
