@@ -16,3 +16,4 @@ ill list the dependencies i needed, but you can probably just run the build scri
 - visual studio: there isn't a visual studio solution or anything, but visual studio gives you the build environment scripts and some compilation tools (cl, nmake). the build script tries to run one of the visual studio environment scripts by checking for an environment variable `VS_PATH`, so be sure to define that somewhere in your windows environment settings (should be something like `C:\Program Files\Microsoft Visual Studio\2022\Community`)
 - perl: this runs the configuration script for openssl. when i wrote this, openssl recommended installing [Strawberry Perl](http://strawberryperl.com). install it and add it to your `PATH`
 - nasm: used by the openssl build script. [download](https://www.nasm.us) it and add it to your `PATH`
+- cmake: this is needed for configuring the libssh build
