@@ -6,6 +6,7 @@ i don't like complicated build systems. my code will build with just a c compile
 this project depends on libssh (which depends on openssl). the build scripts also try to build the dependencies from source, so they are included as submodules. when cloning this repo, be sure to use the `--recurse-submodules` flag.
 ### tools
 unfortunately there are a number of tools required for building the dependencies. i will list the tools i ended up needing, but there is always the chance that my environment had some things that i didn't realize were necessary. so if the build scripts have problems building the dependencies, you can check the respective repos for build instructions.
+
 ill list the dependencies i needed, but you can probably just run the build script and see what works or not.
 #### unix/linux-based
 - gcc: my build script will probably work with clang or something too, but im not sure about the dependencies
