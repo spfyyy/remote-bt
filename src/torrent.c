@@ -1,11 +1,10 @@
-#define LIBSSH_STATIC 1
 #include "libssh/libssh.h"
 #include "bencode.c"
 
-i32 countNumBytesInFile(FILE *file, size_t *outCount); 
+i32 countNumBytesInFile(FILE *file, size_t *outCount);
 i32 allocMemoryAndLoadFile(char *fileName, u8 **outMemory, size_t *outMemorySize);
 
-i32 main(i32 argc, char **argv)
+int main(int argc, char **argv)
 {
 	ssh_session ssh_connection = ssh_new();
 	if (ssh_connection == NULL)
@@ -110,4 +109,3 @@ i32 allocMemoryAndLoadFile(char *fileName, u8 **outMemory, size_t *outMemorySize
 	fclose(file);
 	return 0;
 }
-
