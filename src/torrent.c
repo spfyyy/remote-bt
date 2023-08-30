@@ -10,6 +10,7 @@ int main(int argc, char **argv)
 	if (ssh_connection == NULL)
 	{
 		fprintf(stderr, "failed to initialize ssh\n");
+		return 1;
 	}
 
 	ssh_free(ssh_connection);

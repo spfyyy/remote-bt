@@ -10,25 +10,20 @@ error()
 	exit 1
 }
 
-# build depencies
-if [ ! -d src/dependencies/build ]; then
-	mkdir -p src/dependencies/build
-fi
-
 # build openssl (needed to build libssh)
-if [ ! -e src/dependencies/build/openssl/lib64/libcrypto.a ]; then
+if [ ! -e src/dependencies/openssl/libcrypto.so ]; then
 	cd src/dependencies/openssl || error "openssl not found, did you clone submodules?"
-	./Configure --prefix=$PROJ_DIR/src/dependencies/build/openssl --no-shared && make && make install || error "failed to build openssl"
+	./Configure no-apps no-docs && make || error "failed to build openssl"
 	cd "$PROJ_DIR"
 fi
 
 # build libssh
-if [ ! -e src/dependencies/build/libssh/lib/libssh.so ]; then
+if [ ! -e src/dependencies/libssh/build/lib/libssh.so ]; then
 	if [ ! -d src/dependencies/libssh/build ]; then
 		mkdir src/dependencies/libssh/build || error "could not make libssh build folder, did you clone submodules?"
 	fi
 	cd src/dependencies/libssh/build
-	cmake -S "$PROJ_DIR/src/dependencies/libssh" -DCMAKE_INSTALL_PREFIX="$PROJ_DIR/src/dependencies/build/libssh" -DCMAKE_BUILD_TYPE=Release -DWITH_ZLIB=OFF -DOPENSSL_CRYPTO_LIBRARY="$PROJ_DIR/src/dependencies/build/openssl/lib64/libcrypto.a" -DOPENSSL_INCLUDE_DIR="$PROJ_DIR/src/dependencies/build/openssl/include" && make && make install || error "failed to build libssh"
+	cmake -S "$PROJ_DIR/src/dependencies/libssh" -DCMAKE_BUILD_TYPE=Release -DWITH_ZLIB=OFF -DWITH_EXAMPLES=OFF -DOPENSSL_CRYPTO_LIBRARY="$PROJ_DIR/src/dependencies/openssl/libcrypto.so" -DOPENSSL_INCLUDE_DIR="$PROJ_DIR/src/dependencies/openssl/include" && cmake --build . --config Release || error "failed to build libssh"
 	cd "$PROJ_DIR"
 fi
 
@@ -37,6 +32,6 @@ if [ ! -d build ]; then
 fi
 
 cd build
-gcc -fsanitize=address -I"$PROJ_DIR/src/dependencies/build/libssh/include" "$PROJ_DIR/src/torrent.c" "$PROJ_DIR/src/dependencies/build/libssh/lib/libssh.so" -o torrent || error "build failed"
+gcc -fsanitize=address -I"$PROJ_DIR/src/dependencies/libssh/include" -I"$PROJ_DIR/src/dependencies/libssh/build/include" "$PROJ_DIR/src/torrent.c" "$PROJ_DIR/src/dependencies/libssh/build/lib/libssh.so" -o torrent || error "build failed"
 cd "$START_DIR"
 
