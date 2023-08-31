@@ -27,18 +27,50 @@ int main(int argc, char **argv)
 
 	// TODO: check known_hosts, generate keypair if needed, write to known_hosts, etc
 
-	ssh_key key;
-	if (ssh_pki_import_pubkey_file(public_key, &key) != SSH_OK)
+	ssh_key public_key;
+	if (ssh_pki_import_pubkey_file(public_key_file, &public_key) != SSH_OK)
 	{
-		fprintf(stderr, "failed to read public key: %s\n", public_key);
+		fprintf(stderr, "failed to read public key %s: %s\n", public_key_file, ssh_get_error(remote_session));
 		ssh_disconnect(remote_session);
 		ssh_free(remote_session);
 		return 1;
 	}
 
-	ssh_key_free(key);
+	if (ssh_userauth_try_publickey(remote_session, NULL, public_key) != SSH_AUTH_SUCCESS)
+	{
+		fprintf(stderr, "public key %s not authorized: %s\n", public_key_file, ssh_get_error(remote_session));
+		ssh_key_free(public_key);
+		ssh_disconnect(remote_session);
+		ssh_free(remote_session);
+		return 1;
+	}	
+
+	ssh_key private_key;
+	if (ssh_pki_import_privkey_file(private_key_file, private_key_password, NULL, NULL, &private_key) != SSH_OK)
+	{
+		fprintf(stderr, "failed to read private key %s: %s\n", private_key_file, ssh_get_error(remote_session));
+		ssh_key_free(public_key);
+		ssh_disconnect(remote_session);
+		ssh_free(remote_session);
+		return 1;
+	}
+
+	if (ssh_userauth_publickey(remote_session, NULL, private_key) != SSH_AUTH_SUCCESS)
+	{
+		fprintf(stderr, "private key %s not authorized: %s\n", private_key_file, ssh_get_error(remote_session));
+		ssh_key_free(private_key);
+		ssh_key_free(public_key);
+		ssh_disconnect(remote_session);
+		ssh_free(remote_session);
+		return 1;
+	}
+
+	ssh_key_free(private_key);
+	ssh_key_free(public_key);
 	ssh_disconnect(remote_session);
 	ssh_free(remote_session);
+
+	fprintf(stdout, "connected to remote via ssh, nice!\n");
 
 	if (argc < 2)
 	{
