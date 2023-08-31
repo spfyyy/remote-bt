@@ -1,19 +1,44 @@
 #include "libssh/libssh.h"
 #include "bencode.c"
+#include "ssh_config.c"
 
 i32 countNumBytesInFile(FILE *file, size_t *outCount);
 i32 allocMemoryAndLoadFile(char *fileName, u8 **outMemory, size_t *outMemorySize);
 
 int main(int argc, char **argv)
 {
-	ssh_session ssh_connection = ssh_new();
-	if (ssh_connection == NULL)
+	ssh_session remote_session = ssh_new();
+	if (remote_session == NULL)
 	{
 		fprintf(stderr, "failed to initialize ssh\n");
 		return 1;
 	}
 
-	ssh_free(ssh_connection);
+	ssh_options_set(remote_session, SSH_OPTIONS_HOST, host);
+	ssh_options_set(remote_session, SSH_OPTIONS_PORT, &port);
+	ssh_options_set(remote_session, SSH_OPTIONS_USER, user);
+
+	if (ssh_connect(remote_session) != SSH_OK)
+	{
+		fprintf(stderr, "failed to connect to remote: %s\n", ssh_get_error(remote_session));
+		ssh_free(remote_session);
+		return 1;
+	}
+
+	// TODO: check known_hosts, generate keypair if needed, write to known_hosts, etc
+
+	ssh_key key;
+	if (ssh_pki_import_pubkey_file(public_key, &key) != SSH_OK)
+	{
+		fprintf(stderr, "failed to read public key: %s\n", public_key);
+		ssh_disconnect(remote_session);
+		ssh_free(remote_session);
+		return 1;
+	}
+
+	ssh_key_free(key);
+	ssh_disconnect(remote_session);
+	ssh_free(remote_session);
 
 	if (argc < 2)
 	{

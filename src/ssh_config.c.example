@@ -1,0 +1,7 @@
+#include "types.h"
+
+char *host = "localhost";
+u32 port = 22;
+char *user = "me";
+char *public_key = "/home/user/.ssh/key.pub";
+

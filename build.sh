@@ -27,6 +27,11 @@ if [ ! -e src/dependencies/libssh/build/lib/libssh.so ]; then
 	cd "$PROJ_DIR"
 fi
 
+# ssh_config.c is private, so it needs to be created
+if [ ! -e src/ssh_config.c ]; then
+	cp src/ssh_config.c.example src/ssh_config.c || error "could not create ssh_config.c"
+fi
+
 if [ ! -d build ]; then
 	mkdir build
 fi
