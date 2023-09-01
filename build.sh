@@ -37,6 +37,6 @@ if [ ! -d build ]; then
 fi
 
 cd build
-gcc -fsanitize=address -I"$PROJ_DIR/src/dependencies/libssh/include" -I"$PROJ_DIR/src/dependencies/libssh/build/include" "$PROJ_DIR/src/torrent.c" "$PROJ_DIR/src/dependencies/libssh/build/lib/libssh.so" -o torrent || error "build failed"
+gcc -fsanitize=address -I"$PROJ_DIR/src/dependencies/libssh/include" -I"$PROJ_DIR/src/dependencies/libssh/build/include" "$PROJ_DIR/src/remote_bt.c" "$PROJ_DIR/src/dependencies/libssh/build/lib/libssh.so" -g -o torrent || error "build failed"
 cd "$START_DIR"
 

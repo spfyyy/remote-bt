@@ -1,9 +1,9 @@
 #include "types.h"
 
-char *host = "localhost";
-u32 port = 22;
-char *user = "me";
-char *public_key_file = "/home/user/.ssh/key.pub";
-char *private_key_file = "/home/user/.ssh/privkey";
-char *private_key_password = NULL;
+char *ssh_host = "localhost";
+u32 ssh_port = 22;
+char *ssh_user = "me";
+char *ssh_public_key_file = "/home/user/.ssh/key.pub";
+char *ssh_private_key_file = "/home/user/.ssh/privkey";
+char *ssh_private_key_password = NULL;
 

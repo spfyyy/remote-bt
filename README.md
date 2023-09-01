@@ -17,3 +17,6 @@ ill list the dependencies i needed, but you can probably just run the build scri
 - perl: this runs the configuration script for openssl. when i wrote this, openssl recommended installing [Strawberry Perl](http://strawberryperl.com). install it and add it to your `PATH`
 - nasm: used by the openssl build script. [download](https://www.nasm.us) it and add it to your `PATH`
 - cmake: this is needed for configuring the libssh build
+### configuring ssh
+i did not want to code any complicated file parsing to configure how the program initializes the ssh connection. instead, this program requires an ssh_config.c file to exist or it fails to build. if the file doesn't exist yet, the build script will create one using the ssh_config.c.example template. it's up to you to edit the ssh_config.c file with your own settings and rebuild for the changes to take effect.
+
