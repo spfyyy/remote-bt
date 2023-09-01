@@ -227,7 +227,7 @@ int run_remote_command(ssh_session remote_session, char *command, u8_array *out_
 
 	if (num_bytes_read < 0)
 	{
-		fprintf(stderr, "failed to allocate buffer memory for reading remote command output\n");
+		fprintf(stderr, "error while reading data from remote\n");
 		free(out_stdout_data->data);
 		free(buffer);
 		ssh_channel_close(channel);
