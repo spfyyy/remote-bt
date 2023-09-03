@@ -20,7 +20,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-    char *link = argv[1];
+	char *link = argv[1];
 	char *curl_command = remote_bt_allocate_formatted_string("%s%s%s", "curl --output - '", link, "'");
 	if (curl_command == NULL)
 	{
@@ -28,12 +28,12 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-    i32 result_code;
-    u8_array torrent;
-    result_code = run_remote_command(remote_session, curl_command, &torrent);
-    free(curl_command);
-    ssh_disconnect(remote_session);
-    ssh_free(remote_session);
+	i32 result_code;
+	u8_array torrent;
+	result_code = run_remote_command(remote_session, curl_command, &torrent);
+	free(curl_command);
+	ssh_disconnect(remote_session);
+	ssh_free(remote_session);
 	if (result_code != 0)
 	{
 		fprintf(stderr, "failed to run remote command\n");
@@ -41,7 +41,7 @@ int main(int argc, char **argv)
 	}
 
 	u8_array bencoded_announce;
-    result_code = bencode_get_value_for_key(torrent, "announce", 8, &bencoded_announce);
+	result_code = bencode_get_value_for_key(torrent, "announce", 8, &bencoded_announce);
 	if (result_code != 0)
 	{
 		fprintf(stderr, "did not find announce key in dictionary\n");
@@ -50,7 +50,7 @@ int main(int argc, char **argv)
 	}
 
 	char *announce = bencode_allocate_string_value(bencoded_announce);
-    free(torrent.data);
+	free(torrent.data);
 	if (announce == NULL)
 	{
 		fprintf(stderr, "failed to convert bencoded value into a string\n");
