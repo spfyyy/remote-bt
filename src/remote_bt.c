@@ -1,4 +1,5 @@
 #include "remote_bt.h"
+#include "utils.c"
 #include "bencode.c"
 #include "ssh_config.c"
 
@@ -19,34 +20,29 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	char *link = argv[1];
-	size_t link_size = strlen(link);
-	char *curl_command_start = "curl --output - '";
-	size_t curl_command_start_size = strlen(curl_command_start);
-	char *curl_command_end = "'";
-	size_t curl_command_end_size = strlen(curl_command_end);
-	size_t curl_command_size = curl_command_start_size + link_size + curl_command_end_size;
-	char *curl_command = (char *)calloc(curl_command_size + 1, sizeof(char));
-	memcpy(curl_command, curl_command_start, curl_command_start_size);
-	memcpy(curl_command + curl_command_start_size, link, link_size);
-	memcpy(curl_command + curl_command_start_size + link_size, curl_command_end, curl_command_end_size);
-
-	u8_array torrent;
-	if (run_remote_command(remote_session, curl_command, &torrent) != 0)
+    char *link = argv[1];
+	char *curl_command = remote_bt_allocate_formatted_string("%s%s%s", "curl --output - '", link, "'");
+	if (curl_command == NULL)
 	{
-		fprintf(stderr, "failed to run remote command\n");
-		free(curl_command);
-		ssh_disconnect(remote_session);
-		ssh_free(remote_session);
+		fprintf(stderr, "failed to allocate curl command\n");
 		return 1;
 	}
 
-	free(curl_command);
-	ssh_disconnect(remote_session);
-	ssh_free(remote_session);
+    i32 result_code;
+    u8_array torrent;
+    result_code = run_remote_command(remote_session, curl_command, &torrent);
+    free(curl_command);
+    ssh_disconnect(remote_session);
+    ssh_free(remote_session);
+	if (result_code != 0)
+	{
+		fprintf(stderr, "failed to run remote command\n");
+		return 1;
+	}
 
 	u8_array bencoded_announce;
-	if (bencode_get_value_for_key(torrent, "announce", 8, &bencoded_announce) != 0)
+    result_code = bencode_get_value_for_key(torrent, "announce", 8, &bencoded_announce);
+	if (result_code != 0)
 	{
 		fprintf(stderr, "did not find announce key in dictionary\n");
 		free(torrent.data);
@@ -54,16 +50,15 @@ int main(int argc, char **argv)
 	}
 
 	char *announce = bencode_allocate_string_value(bencoded_announce);
+    free(torrent.data);
 	if (announce == NULL)
 	{
 		fprintf(stderr, "failed to convert bencoded value into a string\n");
-		free(torrent.data);
 		return 1;
 	}
 
 	fprintf(stdout, "%s\n", announce);
 	free(announce);
-	free(torrent.data);
 	return 0;
 }
 
@@ -122,7 +117,7 @@ ssh_session start_ssh_connection()
 		ssh_disconnect(remote_session);
 		ssh_free(remote_session);
 		return NULL;
-	}	
+	}
 
 	ssh_key private_key;
 	if (ssh_pki_import_privkey_file(ssh_private_key_file, ssh_private_key_password, NULL, NULL, &private_key) != SSH_OK)
@@ -241,4 +236,3 @@ int run_remote_command(ssh_session remote_session, char *command, u8_array *out_
 	ssh_channel_free(channel);
 	return 0;
 }
-
