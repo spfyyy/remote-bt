@@ -29,6 +29,11 @@ if not exist src\dependencies\libssh\build\src\Release\ssh.lib (
     cd "%PROJ_DIR%"
 )
 
+REM ssh_config.c is private, so it needs to be created
+if not exist src\ssh_config.c (
+	copy src\ssh_config.c.example src\ssh_config.c || goto :error
+)
+
 if not exist build (
     mkdir build || goto :error
 )
@@ -46,7 +51,7 @@ if not exist pthreadVC3.dll (
     copy "%PROJ_DIR%\src\dependencies\libssh\build\src\Release\pthreadVC3.dll" . || goto :error
 )
 
-cl -I"%PROJ_DIR%\src\dependencies\libssh\include" -I"%PROJ_DIR%\src\dependencies\libssh\build\include" "%PROJ_DIR%\src\torrent.c" "%PROJ_DIR%\src\dependencies\libssh\build\src\Release\ssh.lib" || goto :error
+cl -I"%PROJ_DIR%\src\dependencies\libssh\include" -I"%PROJ_DIR%\src\dependencies\libssh\build\include" "%PROJ_DIR%\src\remote_bt.c" "%PROJ_DIR%\src\dependencies\libssh\build\src\Release\ssh.lib" || goto :error
 goto :EOF
 
 :error
