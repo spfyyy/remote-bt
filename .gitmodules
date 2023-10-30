@@ -1,6 +1,0 @@
-[submodule "src/dependencies/libssh"]
-	path = src/dependencies/libssh
-	url = https://git.libssh.org/projects/libssh.git
-[submodule "src/dependencies/openssl"]
-	path = src/dependencies/openssl
-	url = git://git.openssl.org/openssl.git

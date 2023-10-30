@@ -2,7 +2,7 @@
 setlocal
 cls
 
-set PROJ_DIR=%~dp0
+set PROJ_DIR=%~dp0.
 cd "%PROJ_DIR%"
 
 if not exist build (
