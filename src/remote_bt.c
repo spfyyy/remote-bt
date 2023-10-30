@@ -21,7 +21,7 @@ int main(int argc, char **argv)
 	}
 
 	char *link = argv[1];
-	char *curl_command = remote_bt_allocate_formatted_string("%s%s%s", "curl --output - '", link, "'");
+	char *curl_command = remote_bt_allocate_formatted_string("curl --output - '%s'", link);
 	if (curl_command == NULL)
 	{
 		fprintf(stderr, "failed to allocate curl command\n");
