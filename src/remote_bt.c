@@ -1,69 +1,71 @@
+#include <libssh/libssh.h>
+#include <stdarg.h>
 #include "remote_bt.h"
+#include "types.h"
 #include "bencode.c"
 #include "ssh_config.c"
 
 #define COMMAND_MAX_LENGTH 300
 #define REMOTE_BT_BUFFER_SIZE 1024 * 4096
 
-int main(int argc, char **argv)
+// utility methods
+static ssh_session start_ssh_connection(void);
+static void end_ssh_connection(ssh_session in_remote_session);
+static int run_remote_command(ssh_session in_remote_session, char *in_command, u8_array *out_stdout_data);
+static int fetch_torrent_file(ssh_session in_remote_session, char *in_link, u8_array *out_torrent);
+static char *allocate_command(char *in_format, ...);
+static char *allocate_announce_from_torrent(u8_array in_torrent);
+
+int remote_bt_init(void)
 {
-	if (argc < 2)
+	// initialize downloads/threads
+	return 0;
+}
+
+void remote_bt_shutdown(void)
+{
+	// shutdown downloads/threads
+}
+
+int remote_bt_download(char *link)
+{
+	if (link == NULL)
 	{
-		fprintf(stderr, "no torrent link specified\n");
+		fprintf(stderr, "torrent link is null\n");
 		return 1;
 	}
 
 	ssh_session remote_session = start_ssh_connection();
 	if (remote_session == NULL)
 	{
-		fprintf(stderr, "failed to connect to ssh remote\n");
+		fprintf(stderr, "failed to start remote session\n");
 		return 1;
 	}
 
-	char *link = argv[1];
-	char *curl_command = (char *)calloc(COMMAND_MAX_LENGTH, sizeof(char));
-	int curl_command_length = snprintf(curl_command, COMMAND_MAX_LENGTH, "curl --output - '%s'", link);
-	if (curl_command_length < 0 || curl_command_length >= COMMAND_MAX_LENGTH)
-	{
-		fprintf(stderr, "failed to allocate curl command\n");
-		return 1;
-	}
-
-	i32 result_code;
 	u8_array torrent;
-	result_code = run_remote_command(remote_session, curl_command, &torrent);
-	free(curl_command);
-	ssh_disconnect(remote_session);
-	ssh_free(remote_session);
-	if (result_code != 0)
+	if (fetch_torrent_file(remote_session, link, &torrent) != 0)
 	{
 		fprintf(stderr, "failed to run remote command\n");
+		end_ssh_connection(remote_session);
 		return 1;
 	}
 
-	u8_array bencoded_announce;
-	result_code = bencode_get_value_for_key(torrent, "announce", 8, &bencoded_announce);
-	if (result_code != 0)
-	{
-		fprintf(stderr, "did not find announce key in dictionary\n");
-		free(torrent.data);
-		return 1;
-	}
-
-	char *announce = bencode_allocate_string_value(bencoded_announce);
-	free(torrent.data);
+	char *announce = allocate_announce_from_torrent(torrent);
 	if (announce == NULL)
 	{
-		fprintf(stderr, "failed to convert bencoded value into a string\n");
+		fprintf(stderr, "failed to get torrent announce value\n");
+		end_ssh_connection(remote_session);
 		return 1;
 	}
 
 	fprintf(stdout, "%s\n", announce);
 	free(announce);
+	free(torrent.data);
+	end_ssh_connection(remote_session);
 	return 0;
 }
 
-ssh_session start_ssh_connection()
+static ssh_session start_ssh_connection(void)
 {
 	ssh_session remote_session = ssh_new();
 	if (remote_session == NULL)
@@ -145,25 +147,31 @@ ssh_session start_ssh_connection()
 	return remote_session;
 }
 
-int run_remote_command(ssh_session remote_session, char *command, u8_array *out_stdout_data)
+static void end_ssh_connection(ssh_session in_remote_session)
 {
-	ssh_channel channel = ssh_channel_new(remote_session);
+	ssh_disconnect(in_remote_session);
+	ssh_free(in_remote_session);
+}
+
+static int run_remote_command(ssh_session in_remote_session, char *in_command, u8_array *out_stdout_data)
+{
+	ssh_channel channel = ssh_channel_new(in_remote_session);
 	if (channel == NULL)
 	{
-		fprintf(stderr, "failed to create ssh channel: %s\n", ssh_get_error(remote_session));
+		fprintf(stderr, "failed to create ssh channel: %s\n", ssh_get_error(in_remote_session));
 		return 1;
 	}
 
 	if (ssh_channel_open_session(channel) != SSH_OK)
 	{
-		fprintf(stderr, "failed to start ssh channel: %s\n", ssh_get_error(remote_session));
+		fprintf(stderr, "failed to start ssh channel: %s\n", ssh_get_error(in_remote_session));
 		ssh_channel_free(channel);
 		return 1;
 	}
 
-	if (ssh_channel_request_exec(channel, command) != SSH_OK)
+	if (ssh_channel_request_exec(channel, in_command) != SSH_OK)
 	{
-		fprintf(stderr, "execute remote command %s: %s\n", command, ssh_get_error(remote_session));
+		fprintf(stderr, "execute remote command %s: %s\n", in_command, ssh_get_error(in_remote_session));
 		ssh_channel_close(channel);
 		ssh_channel_free(channel);
 		return 1;
@@ -236,4 +244,55 @@ int run_remote_command(ssh_session remote_session, char *command, u8_array *out_
 	ssh_channel_close(channel);
 	ssh_channel_free(channel);
 	return 0;
+}
+
+static int fetch_torrent_file(ssh_session in_remote_session, char *in_link, u8_array *out_torrent)
+{
+	char *curl_command = allocate_command("curl --output - '%s'", in_link);
+	if (curl_command == NULL)
+	{
+		fprintf(stderr, "failed to allocate curl command\n");
+		return 1;
+	}
+
+	int result_code = run_remote_command(in_remote_session, curl_command, out_torrent);
+	free(curl_command);
+	return result_code;
+}
+
+static char *allocate_command(char *in_format, ...)
+{
+	va_list arglist;
+	va_start(arglist, in_format);
+	char *command = (char *)calloc(COMMAND_MAX_LENGTH, sizeof(char));
+	if (command == NULL)
+	{
+		fprintf(stderr, "failed to allocate memory for command of format: %s\n", in_format);
+		va_end(arglist);
+		return NULL;
+	}
+
+	int command_length = vsnprintf(command, COMMAND_MAX_LENGTH, in_format, arglist);
+	if (command_length < 0 || command_length >= COMMAND_MAX_LENGTH)
+	{
+		fprintf(stderr, "failed to format command with format: %s\n", in_format);
+		free(command);
+		va_end(arglist);
+		return NULL;
+	}
+
+	va_end(arglist);
+	return command;
+}
+
+static char *allocate_announce_from_torrent(u8_array in_torrent)
+{
+	u8_array bencoded_announce;
+	if (bencode_get_value_for_key(in_torrent, "announce", 8, &bencoded_announce) != 0)
+	{
+		fprintf(stderr, "did not find announce key in dictionary\n");
+		return NULL;
+	}
+
+	return bencode_allocate_string_value(bencoded_announce);
 }

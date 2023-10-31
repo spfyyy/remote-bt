@@ -28,8 +28,9 @@ if not exist pthreadVC3.dll (
 	copy "%VCPKG_X64_PATH%\bin\pthreadVC3.dll" . || goto :error
 )
 
-cl /Zi /MT ^
+cl /Zi ^
 	/I"%VCPKG_X64_PATH%\include" ^
+	"%PROJ_DIR%\src\remote_bt_cli.c" ^
 	"%PROJ_DIR%\src\remote_bt.c" ^
 	/link /LIBPATH:"%VCPKG_X64_PATH%\lib" ^
 	ssh.lib || goto :error
