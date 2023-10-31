@@ -1,8 +1,8 @@
 #include "remote_bt.h"
-#include "utils.c"
 #include "bencode.c"
 #include "ssh_config.c"
 
+#define COMMAND_MAX_LENGTH 300
 #define REMOTE_BT_BUFFER_SIZE 1024 * 4096
 
 int main(int argc, char **argv)
@@ -21,8 +21,9 @@ int main(int argc, char **argv)
 	}
 
 	char *link = argv[1];
-	char *curl_command = remote_bt_allocate_formatted_string("curl --output - '%s'", link);
-	if (curl_command == NULL)
+	char *curl_command = (char *)calloc(COMMAND_MAX_LENGTH, sizeof(char));
+	int curl_command_length = snprintf(curl_command, COMMAND_MAX_LENGTH, "curl --output - '%s'", link);
+	if (curl_command_length < 0 || curl_command_length >= COMMAND_MAX_LENGTH)
 	{
 		fprintf(stderr, "failed to allocate curl command\n");
 		return 1;
@@ -168,7 +169,7 @@ int run_remote_command(ssh_session remote_session, char *command, u8_array *out_
 		return 1;
 	}
 
-	u8 *buffer = (u8 *)calloc(sizeof(u8), REMOTE_BT_BUFFER_SIZE);
+	u8 *buffer = (u8 *)calloc(REMOTE_BT_BUFFER_SIZE, sizeof(u8));
 	if (buffer == NULL)
 	{
 		fprintf(stderr, "failed to allocate buffer memory for reading remote command output\n");
@@ -184,7 +185,7 @@ int run_remote_command(ssh_session remote_session, char *command, u8_array *out_
 		if (out_stdout_data->size == 0)
 		{
 			out_stdout_data->size = num_bytes_read;
-			out_stdout_data->data = (u8 *)calloc(sizeof(u8), num_bytes_read);
+			out_stdout_data->data = (u8 *)calloc(num_bytes_read, sizeof(u8));
 			if (out_stdout_data->data == NULL)
 			{
 				fprintf(stderr, "failed to allocate memory for storing remote command output\n");
@@ -199,7 +200,7 @@ int run_remote_command(ssh_session remote_session, char *command, u8_array *out_
 		else
 		{
 			size_t expanded_size = out_stdout_data->size + num_bytes_read;
-			u8 *expanded_data = (u8 *)calloc(sizeof(u8), expanded_size);
+			u8 *expanded_data = (u8 *)calloc(expanded_size, sizeof(u8));
 			if (expanded_data == NULL)
 			{
 				fprintf(stderr, "failed to allocate memory for storing remote command output\n");
