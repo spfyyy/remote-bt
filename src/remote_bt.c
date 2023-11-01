@@ -21,7 +21,7 @@ static char *allocate_command(char *in_format, ...);
 static char *allocate_announce_from_torrent(u8_array in_torrent);
 static char *allocate_name_from_info(u8_array in_info);
 static int check_torrent_is_multifile_from_info(u8_array in_info);
-static int get_piece_length_from_info(u8_array in_info, i64 *out_piece_length);
+static int get_piece_length_from_info(u8_array in_info, int64_t *out_piece_length);
 
 int remote_bt_init(void)
 {
@@ -86,7 +86,7 @@ int remote_bt_download(char *link)
 		return 1;
 	}
 
-	i64 piece_length;
+	int64_t piece_length;
 	if (get_piece_length_from_info(info, &piece_length) != 0)
 	{
 		fprintf(stderr, "failed to get torrent piece length value\n");
@@ -223,7 +223,7 @@ static int run_remote_command(ssh_session in_remote_session, char *in_command, u
 		return 1;
 	}
 
-	u8 *buffer = (u8 *)calloc(REMOTE_BT_BUFFER_SIZE, sizeof(u8));
+	uint8_t *buffer = (uint8_t *)calloc(REMOTE_BT_BUFFER_SIZE, sizeof(uint8_t));
 	if (buffer == NULL)
 	{
 		fprintf(stderr, "failed to allocate buffer memory for reading remote command output\n");
@@ -239,7 +239,7 @@ static int run_remote_command(ssh_session in_remote_session, char *in_command, u
 		if (out_stdout_data->size == 0)
 		{
 			out_stdout_data->size = num_bytes_read;
-			out_stdout_data->data = (u8 *)calloc(num_bytes_read, sizeof(u8));
+			out_stdout_data->data = (uint8_t *)calloc(num_bytes_read, sizeof(uint8_t));
 			if (out_stdout_data->data == NULL)
 			{
 				fprintf(stderr, "failed to allocate memory for storing remote command output\n");
@@ -254,7 +254,7 @@ static int run_remote_command(ssh_session in_remote_session, char *in_command, u
 		else
 		{
 			size_t expanded_size = out_stdout_data->size + num_bytes_read;
-			u8 *expanded_data = (u8 *)calloc(expanded_size, sizeof(u8));
+			uint8_t *expanded_data = (uint8_t *)calloc(expanded_size, sizeof(uint8_t));
 			if (expanded_data == NULL)
 			{
 				fprintf(stderr, "failed to allocate memory for storing remote command output\n");
@@ -361,7 +361,7 @@ static int check_torrent_is_multifile_from_info(u8_array in_info)
 	return bencode_get_value_for_key(in_info, "length", 6, &bencoded_length) != 0;
 }
 
-static int get_piece_length_from_info(u8_array in_info, i64 *out_piece_length)
+static int get_piece_length_from_info(u8_array in_info, int64_t *out_piece_length)
 {
 	u8_array bencoded_piece_length;
 	if (bencode_get_value_for_key(in_info, "piece length", 12, &bencoded_piece_length) != 0)

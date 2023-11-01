@@ -3,7 +3,7 @@
 #include <string.h>
 #include "bencode.h"
 
-i32 bencode_read_string(u8_array bencoded_array, i32 offset, u8_array *out_array)
+int32_t bencode_read_string(u8_array bencoded_array, int32_t offset, u8_array *out_array)
 {
 	if (offset >= bencoded_array.size)
 	{
@@ -20,7 +20,7 @@ i32 bencode_read_string(u8_array bencoded_array, i32 offset, u8_array *out_array
 	}
 
 	size_t size = 0;
-	i32 i;
+	int32_t i;
 	for (i = offset; i < bencoded_array.size; ++i)
 	{
 		c = bencoded_array.data[i];
@@ -56,7 +56,7 @@ i32 bencode_read_string(u8_array bencoded_array, i32 offset, u8_array *out_array
 	return 0;
 }
 
-i32 bencode_read_number(u8_array bencoded_array, i32 offset, u8_array *out_array)
+int32_t bencode_read_number(u8_array bencoded_array, int32_t offset, u8_array *out_array)
 {
 	if (offset >= bencoded_array.size)
 	{
@@ -71,7 +71,7 @@ i32 bencode_read_number(u8_array bencoded_array, i32 offset, u8_array *out_array
 		return 1;
 	}
 
-	i32 i;
+	int32_t i;
 	for (i = offset + 1; i < bencoded_array.size; ++i) {
 		c = bencoded_array.data[i];
 		if (c == 'e')
@@ -96,7 +96,7 @@ i32 bencode_read_number(u8_array bencoded_array, i32 offset, u8_array *out_array
 	return 0;
 }
 
-i32 bencode_read_list(u8_array bencoded_array, i32 offset, u8_array *out_array)
+int32_t bencode_read_list(u8_array bencoded_array, int32_t offset, u8_array *out_array)
 {
 	if (offset >= bencoded_array.size)
 	{
@@ -111,7 +111,7 @@ i32 bencode_read_list(u8_array bencoded_array, i32 offset, u8_array *out_array)
 		return 1;
 	}
 
-	i32 i;
+	int32_t i;
 	for (i = offset + 1; i < bencoded_array.size;) {
 		c = bencoded_array.data[i];
 		if (c == 'e')
@@ -120,7 +120,7 @@ i32 bencode_read_list(u8_array bencoded_array, i32 offset, u8_array *out_array)
 		}
 
 		u8_array next;
-		i32 next_result = bencode_read_next(bencoded_array, i, &next);
+		int32_t next_result = bencode_read_next(bencoded_array, i, &next);
 
 		if (next_result != 0)
 		{
@@ -148,7 +148,7 @@ i32 bencode_read_list(u8_array bencoded_array, i32 offset, u8_array *out_array)
 	return 0;
 }
 
-i32 bencode_read_dictionary(u8_array bencoded_array, i32 offset, u8_array *out_array)
+int32_t bencode_read_dictionary(u8_array bencoded_array, int32_t offset, u8_array *out_array)
 {
 	if (offset >= bencoded_array.size)
 	{
@@ -163,7 +163,7 @@ i32 bencode_read_dictionary(u8_array bencoded_array, i32 offset, u8_array *out_a
 		return 1;
 	}
 
-	i32 i;
+	int32_t i;
 	for (i = offset + 1; i < bencoded_array.size;) {
 		c = bencoded_array.data[i];
 		if (c == 'e')
@@ -172,7 +172,7 @@ i32 bencode_read_dictionary(u8_array bencoded_array, i32 offset, u8_array *out_a
 		}
 
 		u8_array next;
-		i32 next_result = bencode_read_string(bencoded_array, i, &next);
+		int32_t next_result = bencode_read_string(bencoded_array, i, &next);
 
 		if (next_result != 0)
 		{
@@ -209,7 +209,7 @@ i32 bencode_read_dictionary(u8_array bencoded_array, i32 offset, u8_array *out_a
 	return 0;
 }
 
-i32 bencode_read_next(u8_array bencoded_array, i32 offset, u8_array *out_array)
+int32_t bencode_read_next(u8_array bencoded_array, int32_t offset, u8_array *out_array)
 {
 	if (offset >= bencoded_array.size)
 	{
@@ -218,7 +218,7 @@ i32 bencode_read_next(u8_array bencoded_array, i32 offset, u8_array *out_array)
 	}
 
 	char c = bencoded_array.data[offset];
-	i32 next_result;
+	int32_t next_result;
 	if (c >= '0' && c <= '9')
 	{
 		next_result = bencode_read_string(bencoded_array, offset, out_array);
@@ -242,8 +242,8 @@ i32 bencode_read_next(u8_array bencoded_array, i32 offset, u8_array *out_array)
 
 char *bencode_allocate_string_value(u8_array bencoded_value)
 {
-	i32 start_index;
-	for (i32 i = 0; i < bencoded_value.size; ++i)
+	int32_t start_index;
+	for (int32_t i = 0; i < bencoded_value.size; ++i)
 	{
 		if (bencoded_value.data[i] == ':')
 		{
@@ -270,7 +270,7 @@ char *bencode_allocate_string_value(u8_array bencoded_value)
 	return result;
 }
 
-int bencode_get_number_value(u8_array in_bencoded_value, i64 *out_value)
+int bencode_get_number_value(u8_array in_bencoded_value, int64_t *out_value)
 {
 	if (in_bencoded_value.size < 3)
 	{
@@ -285,8 +285,8 @@ int bencode_get_number_value(u8_array in_bencoded_value, i64 *out_value)
 		return 1;
 	}
 
-	i64 size = 0;
-	i32 i;
+	int64_t size = 0;
+	int32_t i;
 	for (i = 1; i < in_bencoded_value.size-1; ++i)
 	{
 		c = in_bencoded_value.data[i];
@@ -310,7 +310,7 @@ int bencode_get_number_value(u8_array in_bencoded_value, i64 *out_value)
 	return 0;
 }
 
-i32 bencode_get_value_for_key(u8_array bencoded_dictionary, char *key, size_t key_length, u8_array *out_value)
+int32_t bencode_get_value_for_key(u8_array bencoded_dictionary, char *key, size_t key_length, u8_array *out_value)
 {
 	if (bencoded_dictionary.size < 2 || bencoded_dictionary.data[0] != 'd')
 	{
@@ -318,7 +318,7 @@ i32 bencode_get_value_for_key(u8_array bencoded_dictionary, char *key, size_t ke
 		return 1;
 	}
 
-	for (i32 i = 1; i < bencoded_dictionary.size && bencoded_dictionary.data[i] != 'e';)
+	for (int32_t i = 1; i < bencoded_dictionary.size && bencoded_dictionary.data[i] != 'e';)
 	{
 		u8_array key_array;
 		if (bencode_read_string(bencoded_dictionary, i, &key_array) != 0)
@@ -338,8 +338,8 @@ i32 bencode_get_value_for_key(u8_array bencoded_dictionary, char *key, size_t ke
 
 		i += value_array.size;
 
-		i32 key_start_index;
-		for (i32 i = 0; i < key_array.size; ++i)
+		int32_t key_start_index;
+		for (int32_t i = 0; i < key_array.size; ++i)
 		{
 			if (key_array.data[i] == ':')
 			{
@@ -353,8 +353,8 @@ i32 bencode_get_value_for_key(u8_array bencoded_dictionary, char *key, size_t ke
 			continue;
 		}
 
-		b32 match = 1;
-		for (i32 j = 0; j < key_length; ++j)
+		int32_t match = 1;
+		for (int32_t j = 0; j < key_length; ++j)
 		{
 			if (key_array.data[j + key_start_index] != key[j])
 			{
@@ -374,4 +374,3 @@ i32 bencode_get_value_for_key(u8_array bencoded_dictionary, char *key, size_t ke
 
 	return 1;
 }
-
