@@ -101,7 +101,7 @@ int remote_bt_download(char *link)
 
 	fprintf(stdout, "name: %s\n", name);
 	fprintf(stdout, "announce: %s\n", announce);
-	fprintf(stdout, "piece length: %ld bytes\n", piece_length);
+	fprintf(stdout, "piece length: %lld bytes\n", piece_length);
 	fprintf(stdout, "is_multifile: %s\n", is_multifile ? "true" : "false");
 
 	free(name);
