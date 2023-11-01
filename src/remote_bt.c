@@ -5,8 +5,12 @@
 #include "bencode.c"
 #include "ssh_config.c"
 
-#define COMMAND_MAX_LENGTH 300
+#ifndef REMOTE_BT_COMMAND_MAX_LENGTH
+#define REMOTE_BT_COMMAND_MAX_LENGTH 300
+#endif
+#ifndef REMOTE_BT_BUFFER_SIZE
 #define REMOTE_BT_BUFFER_SIZE 1024 * 4096
+#endif
 
 // utility methods
 static ssh_session start_ssh_connection(void);
@@ -16,6 +20,8 @@ static int fetch_torrent_file(ssh_session in_remote_session, char *in_link, u8_a
 static char *allocate_command(char *in_format, ...);
 static char *allocate_announce_from_torrent(u8_array in_torrent);
 static char *allocate_name_from_info(u8_array in_info);
+static int check_torrent_is_multifile_from_info(u8_array in_info);
+static int get_piece_length_from_info(u8_array in_info, i64 *out_piece_length);
 
 int remote_bt_init(void)
 {
@@ -80,8 +86,23 @@ int remote_bt_download(char *link)
 		return 1;
 	}
 
-	fprintf(stdout, "%s\n", name);
-	fprintf(stdout, "%s\n", announce);
+	i64 piece_length;
+	if (get_piece_length_from_info(info, &piece_length) != 0)
+	{
+		fprintf(stderr, "failed to get torrent piece length value\n");
+		free(name);
+		free(announce);
+		free(torrent.data);
+		end_ssh_connection(remote_session);
+		return 1;
+	}
+
+	int is_multifile = check_torrent_is_multifile_from_info(info);
+
+	fprintf(stdout, "name: %s\n", name);
+	fprintf(stdout, "announce: %s\n", announce);
+	fprintf(stdout, "piece length: %ld bytes\n", piece_length);
+	fprintf(stdout, "is_multifile: %s\n", is_multifile ? "true" : "false");
 
 	free(name);
 	free(announce);
@@ -289,7 +310,7 @@ static char *allocate_command(char *in_format, ...)
 {
 	va_list arglist;
 	va_start(arglist, in_format);
-	char *command = (char *)calloc(COMMAND_MAX_LENGTH, sizeof(char));
+	char *command = (char *)calloc(REMOTE_BT_COMMAND_MAX_LENGTH, sizeof(char));
 	if (command == NULL)
 	{
 		fprintf(stderr, "failed to allocate memory for command of format: %s\n", in_format);
@@ -297,8 +318,8 @@ static char *allocate_command(char *in_format, ...)
 		return NULL;
 	}
 
-	int command_length = vsnprintf(command, COMMAND_MAX_LENGTH, in_format, arglist);
-	if (command_length < 0 || command_length >= COMMAND_MAX_LENGTH)
+	int command_length = vsnprintf(command, REMOTE_BT_COMMAND_MAX_LENGTH, in_format, arglist);
+	if (command_length < 0 || command_length >= REMOTE_BT_COMMAND_MAX_LENGTH)
 	{
 		fprintf(stderr, "failed to format command with format: %s\n", in_format);
 		free(command);
@@ -332,4 +353,22 @@ static char *allocate_name_from_info(u8_array in_info)
 	}
 
 	return bencode_allocate_string_value(bencoded_name);
+}
+
+static int check_torrent_is_multifile_from_info(u8_array in_info)
+{
+	u8_array bencoded_length;
+	return bencode_get_value_for_key(in_info, "length", 6, &bencoded_length) != 0;
+}
+
+static int get_piece_length_from_info(u8_array in_info, i64 *out_piece_length)
+{
+	u8_array bencoded_piece_length;
+	if (bencode_get_value_for_key(in_info, "piece length", 12, &bencoded_piece_length) != 0)
+	{
+		fprintf(stderr, "did not find piece length key in dictionary\n");
+		return 1;
+	}
+
+	return bencode_get_number_value(bencoded_piece_length, out_piece_length);
 }

@@ -270,6 +270,46 @@ char *bencode_allocate_string_value(u8_array bencoded_value)
 	return result;
 }
 
+int bencode_get_number_value(u8_array in_bencoded_value, i64 *out_value)
+{
+	if (in_bencoded_value.size < 3)
+	{
+		fprintf(stderr, "reached end of data while parsing number\n");
+		return 1;
+	}
+
+	char c = in_bencoded_value.data[0];
+	if (c != 'i')
+	{
+		fprintf(stderr, "expected to read 'i' while parsing number but got %c\n", c);
+		return 1;
+	}
+
+	i64 size = 0;
+	i32 i;
+	for (i = 1; i < in_bencoded_value.size-1; ++i)
+	{
+		c = in_bencoded_value.data[i];
+		if (c < '0' || c > '9')
+		{
+			fprintf(stderr, "Expected digit while parsing number but got %c\n", c);
+			return 1;
+		}
+
+		size = (10 * size) + (c - '0');
+	}
+
+	c = in_bencoded_value.data[i];
+	if (c != 'e')
+	{
+		fprintf(stderr, "Expected 'e' while parsing number but got %c\n", c);
+		return 1;
+	}
+
+	*out_value = size;
+	return 0;
+}
+
 i32 bencode_get_value_for_key(u8_array bencoded_dictionary, char *key, size_t key_length, u8_array *out_value)
 {
 	if (bencoded_dictionary.size < 2 || bencoded_dictionary.data[0] != 'd')
