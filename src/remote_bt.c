@@ -15,6 +15,7 @@ static int run_remote_command(ssh_session in_remote_session, char *in_command, u
 static int fetch_torrent_file(ssh_session in_remote_session, char *in_link, u8_array *out_torrent);
 static char *allocate_command(char *in_format, ...);
 static char *allocate_announce_from_torrent(u8_array in_torrent);
+static char *allocate_name_from_info(u8_array in_info);
 
 int remote_bt_init(void)
 {
@@ -50,15 +51,39 @@ int remote_bt_download(char *link)
 		return 1;
 	}
 
-	char *announce = allocate_announce_from_torrent(torrent);
-	if (announce == NULL)
+	u8_array info;
+	if (bencode_get_value_for_key(torrent, "info", 4, &info) != 0)
 	{
-		fprintf(stderr, "failed to get torrent announce value\n");
+		fprintf(stderr, "failed to get info dictionary from torrent\n");
+		free(torrent.data);
 		end_ssh_connection(remote_session);
 		return 1;
 	}
 
+	char *announce = allocate_announce_from_torrent(torrent);
+	if (announce == NULL)
+	{
+		fprintf(stderr, "failed to get torrent announce value\n");
+		free(torrent.data);
+		end_ssh_connection(remote_session);
+		return 1;
+	}
+
+
+	char *name = allocate_name_from_info(info);
+	if (name == NULL)
+	{
+		fprintf(stderr, "failed to get torrent name value\n");
+		free(announce);
+		free(torrent.data);
+		end_ssh_connection(remote_session);
+		return 1;
+	}
+
+	fprintf(stdout, "%s\n", name);
 	fprintf(stdout, "%s\n", announce);
+
+	free(name);
 	free(announce);
 	free(torrent.data);
 	end_ssh_connection(remote_session);
@@ -295,4 +320,16 @@ static char *allocate_announce_from_torrent(u8_array in_torrent)
 	}
 
 	return bencode_allocate_string_value(bencoded_announce);
+}
+
+static char *allocate_name_from_info(u8_array in_info)
+{
+	u8_array bencoded_name;
+	if (bencode_get_value_for_key(in_info, "name", 4, &bencoded_name) != 0)
+	{
+		fprintf(stderr, "did not find name key in dictionary\n");
+		return NULL;
+	}
+
+	return bencode_allocate_string_value(bencoded_name);
 }

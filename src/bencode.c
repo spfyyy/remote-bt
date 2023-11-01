@@ -78,7 +78,7 @@ i32 bencode_read_number(u8_array bencoded_array, i32 offset, u8_array *out_array
 		{
 			break;
 		}
-		if (c < '1' || c > '9')
+		if (c < '0' || c > '9')
 		{
 			fprintf(stderr, "Expected digits while reading number but got %c\n", c);
 			return 1;
@@ -274,7 +274,7 @@ i32 bencode_get_value_for_key(u8_array bencoded_dictionary, char *key, size_t ke
 {
 	if (bencoded_dictionary.size < 2 || bencoded_dictionary.data[0] != 'd')
 	{
-		fprintf(stderr, "Unable to process as data as dictionary\n");
+		fprintf(stderr, "Unable to process data as dictionary\n");
 		return 1;
 	}
 
