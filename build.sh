@@ -15,6 +15,6 @@ if [ ! -d build ]; then
 fi
 
 cd build
-gcc "$PROJ_DIR/src/remote_bt.c" -g -o torrent -lssh || error "build failed"
+gcc "$PROJ_DIR/src/remote_bt_cli.c" "$PROJ_DIR/src/remote_bt.c" -g -o torrent -lssh || error "build failed"
 cd "$START_DIR"
 
