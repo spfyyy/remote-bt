@@ -3,373 +3,518 @@
 #include <string.h>
 #include "bencode.h"
 
-int32_t bencode_read_string(u8_array bencoded_array, int32_t offset, u8_array *out_array)
+// internal utilities
+static int bencode_size_data(uint8_t *in_data, size_t in_max_size, size_t *out_size);
+static int bencode_size_string(uint8_t *in_data, size_t in_max_size, size_t *out_size);
+static int bencode_size_integer(uint8_t *in_data, size_t in_max_size, size_t *out_size);
+static int bencode_size_list(uint8_t *in_data, size_t in_max_size, size_t *out_size);
+static int bencode_size_dictionary(uint8_t *in_data, size_t in_max_size, size_t *out_size);
+
+bencode_dictionary *bencode_allocate_dictionary(bencode_data in_data)
 {
-	if (offset >= bencoded_array.size)
+	size_t dict_size;
+	if (bencode_size_dictionary(in_data.data, in_data.size, &dict_size) != 0)
 	{
-		fprintf(stderr, "Exceeded bounds while reading string\n");
-		return 1;
-	}
-
-	char c = bencoded_array.data[offset];
-
-	if (c < '0' || c > '9')
-	{
-		fprintf(stderr, "Expected digit while reading string but got %c\n", c);
-		return 1;
-	}
-
-	size_t size = 0;
-	int32_t i;
-	for (i = offset; i < bencoded_array.size; ++i)
-	{
-		c = bencoded_array.data[i];
-
-		if (c == ':')
-		{
-			break;
-		} else if (c < '0' || c > '9')
-		{
-			fprintf(stderr, "Expected digit while reading string but got %c\n", c);
-			return 1;
-		}
-
-		size = (10 * size) + (c - '0');
-	}
-
-	if (c != ':')
-	{
-		fprintf(stderr, "Expected ':' while reading string but got %c\n", c);
-		return 1;
-	}
-
-	i += size;
-
-	if (i >= bencoded_array.size)
-	{
-		fprintf(stderr, "Exceeded bounds while reading string\n");
-		return 1;
-	}
-
-	out_array->data = bencoded_array.data + offset;
-	out_array->size = i - offset + 1;
-	return 0;
-}
-
-int32_t bencode_read_number(u8_array bencoded_array, int32_t offset, u8_array *out_array)
-{
-	if (offset >= bencoded_array.size)
-	{
-		fprintf(stderr, "Exceeded bounds while reading number\n");
-		return 1;
-	}
-
-	char c = bencoded_array.data[offset];
-	if (c != 'i')
-	{
-		fprintf(stderr, "Expected character 'i' while reading number but got %c\n", c);
-		return 1;
-	}
-
-	int32_t i;
-	for (i = offset + 1; i < bencoded_array.size; ++i) {
-		c = bencoded_array.data[i];
-		if (c == 'e')
-		{
-			break;
-		}
-		if (c < '0' || c > '9')
-		{
-			fprintf(stderr, "Expected digits while reading number but got %c\n", c);
-			return 1;
-		}
-	}
-
-	if (c != 'e')
-	{
-		fprintf(stderr, "Exceeded bounds while reading number\n");
-		return 1;
-	}
-
-	out_array->data = bencoded_array.data + offset;
-	out_array->size = i - offset + 1;
-	return 0;
-}
-
-int32_t bencode_read_list(u8_array bencoded_array, int32_t offset, u8_array *out_array)
-{
-	if (offset >= bencoded_array.size)
-	{
-		fprintf(stderr, "Exceeded bounds while reading list\n");
-		return 1;
-	}
-
-	char c = bencoded_array.data[offset];
-	if (c != 'l')
-	{
-		fprintf(stderr, "Expected character 'l' while reading list but got %c\n", c);
-		return 1;
-	}
-
-	int32_t i;
-	for (i = offset + 1; i < bencoded_array.size;) {
-		c = bencoded_array.data[i];
-		if (c == 'e')
-		{
-			break;
-		}
-
-		u8_array next;
-		int32_t next_result = bencode_read_next(bencoded_array, i, &next);
-
-		if (next_result != 0)
-		{
-			fprintf(stderr, "Unable to parse while reading list\n");
-			return 1;
-		}
-
-		i += next.size;
-
-		if (i >= bencoded_array.size)
-		{
-			fprintf(stderr, "Exceeded bounds while reading list\n");
-			return 1;
-		}
-	}
-
-	if (c != 'e')
-	{
-		fprintf(stderr, "Exceeded bounds while reading list\n");
-		return 1;
-	}
-
-	out_array->data = bencoded_array.data + offset;
-	out_array->size = i - offset + 1;
-	return 0;
-}
-
-int32_t bencode_read_dictionary(u8_array bencoded_array, int32_t offset, u8_array *out_array)
-{
-	if (offset >= bencoded_array.size)
-	{
-		fprintf(stderr, "Exceeded bounds while reading dictionary\n");
-		return 1;
-	}
-
-	char c = bencoded_array.data[offset];
-	if (c != 'd')
-	{
-		fprintf(stderr, "Expected character 'd' while reading dictionary but got %c\n", c);
-		return 1;
-	}
-
-	int32_t i;
-	for (i = offset + 1; i < bencoded_array.size;) {
-		c = bencoded_array.data[i];
-		if (c == 'e')
-		{
-			break;
-		}
-
-		u8_array next;
-		int32_t next_result = bencode_read_string(bencoded_array, i, &next);
-
-		if (next_result != 0)
-		{
-			fprintf(stderr, "Unable to parse while reading dictionary\n");
-			return 1;
-		}
-
-		i += next.size;
-		next_result = bencode_read_next(bencoded_array, i, &next);
-
-		if (next_result != 0)
-		{
-			fprintf(stderr, "Unable to parse while reading dictionary\n");
-			return 1;
-		}
-
-		i += next.size;
-
-		if (i >= bencoded_array.size)
-		{
-			fprintf(stderr, "Exceeded bounds while reading dictionary\n");
-			return 1;
-		}
-	}
-
-	if (c != 'e')
-	{
-		fprintf(stderr, "Exceeded bounds while reading dictionary\n");
-		return 1;
-	}
-
-	out_array->data = bencoded_array.data + offset;
-	out_array->size = i - offset + 1;
-	return 0;
-}
-
-int32_t bencode_read_next(u8_array bencoded_array, int32_t offset, u8_array *out_array)
-{
-	if (offset >= bencoded_array.size)
-	{
-		fprintf(stderr, "Exceeded bounds while reading next token\n");
-		return 1;
-	}
-
-	char c = bencoded_array.data[offset];
-	int32_t next_result;
-	if (c >= '0' && c <= '9')
-	{
-		next_result = bencode_read_string(bencoded_array, offset, out_array);
-	} else if (c == 'i')
-	{
-		next_result = bencode_read_number(bencoded_array, offset, out_array);
-	} else if (c == 'l')
-	{
-		next_result = bencode_read_list(bencoded_array, offset, out_array);
-	} else if (c == 'd')
-	{
-		next_result = bencode_read_dictionary(bencoded_array, offset, out_array);
-	} else
-	{
-		fprintf(stderr, "Expected character to be a digit, 'i', 'l', or 'd' while reading next token but got %c\n", c);
-		next_result = 1;
-	}
-
-	return next_result;
-}
-
-char *bencode_allocate_string_value(u8_array bencoded_value)
-{
-	int32_t start_index;
-	for (int32_t i = 0; i < bencoded_value.size; ++i)
-	{
-		if (bencoded_value.data[i] == ':')
-		{
-			start_index = i + 1;
-			break;
-		}
-
-		if (i == bencoded_value.size - 1)
-		{
-			fprintf(stderr, "Failed to parse bencoded value as string\n");
-			return NULL;
-		}
-	}
-
-	if (start_index >= bencoded_value.size)
-	{
-		fprintf(stderr, "Failed to parse bencoded value as string\n");
+		fprintf(stderr, "could not calculate size of dictionary\n");
 		return NULL;
 	}
 
-	size_t str_len = bencoded_value.size - start_index;
-	char *result = (char *)(calloc(str_len + 1, sizeof(char)));
-	memcpy(result, bencoded_value.data + start_index, str_len);
-	return result;
-}
-
-int bencode_get_number_value(u8_array in_bencoded_value, int64_t *out_value)
-{
-	if (in_bencoded_value.size < 3)
+	if (dict_size != in_data.size)
 	{
-		fprintf(stderr, "reached end of data while parsing number\n");
-		return 1;
+		fprintf(stderr, "calculated dictionary size differs from given data size\n");
+		return NULL;
 	}
 
-	char c = in_bencoded_value.data[0];
-	if (c != 'i')
+	bencode_pair **pairs;
+	size_t count = 0;
+	uint8_t *data = in_data.data+1;
+	size_t max_size = in_data.size-1;
+	while (data[0] != 'e')
 	{
-		fprintf(stderr, "expected to read 'i' while parsing number but got %c\n", c);
-		return 1;
-	}
-
-	int64_t size = 0;
-	int32_t i;
-	for (i = 1; i < in_bencoded_value.size-1; ++i)
-	{
-		c = in_bencoded_value.data[i];
-		if (c < '0' || c > '9')
+		size_t key_size;
+		bencode_size_string(data, max_size, &key_size);
+		bencode_string *key = bencode_allocate_string((bencode_data){data,key_size});
+		if (key == NULL)
 		{
-			fprintf(stderr, "Expected digit while parsing number but got %c\n", c);
-			return 1;
+			fprintf(stderr, "could not allocate memory for dictionary key\n");
+			goto free_existing_pairs;
 		}
 
-		size = (10 * size) + (c - '0');
-	}
+		data += key_size;
+		max_size -= key_size;
 
-	c = in_bencoded_value.data[i];
-	if (c != 'e')
-	{
-		fprintf(stderr, "Expected 'e' while parsing number but got %c\n", c);
-		return 1;
-	}
-
-	*out_value = size;
-	return 0;
-}
-
-int32_t bencode_get_value_for_key(u8_array bencoded_dictionary, char *key, size_t key_length, u8_array *out_value)
-{
-	if (bencoded_dictionary.size < 2 || bencoded_dictionary.data[0] != 'd')
-	{
-		fprintf(stderr, "Unable to process data as dictionary\n");
-		return 1;
-	}
-
-	for (int32_t i = 1; i < bencoded_dictionary.size && bencoded_dictionary.data[i] != 'e';)
-	{
-		u8_array key_array;
-		if (bencode_read_string(bencoded_dictionary, i, &key_array) != 0)
+		size_t value_size;
+		bencode_size_data(data, max_size, &value_size);
+		bencode_data *value = bencode_allocate_data((bencode_data){data,value_size});
+		if (value == NULL)
 		{
-			fprintf(stderr, "Failed to get key from dictionary\n");
-			return 1;
+			fprintf(stderr, "could not allocate memory for dictionary value\n");
+			goto free_key;
 		}
 
-		i += key_array.size;
-
-		u8_array value_array;
-		if (bencode_read_next(bencoded_dictionary, i, &value_array) != 0)
+		bencode_pair *new_pair = (bencode_pair *)calloc(1, sizeof(bencode_pair));
+		if (new_pair == NULL)
 		{
-			fprintf(stderr, "Failed to get value from dictionary\n");
-			return 1;
+			fprintf(stderr, "could not allocate memory for dictionary pair\n");
+			goto free_value;
 		}
 
-		i += value_array.size;
+		new_pair->key = key;
+		new_pair->value = value;
 
-		int32_t key_start_index;
-		for (int32_t i = 0; i < key_array.size; ++i)
+		bencode_pair **new_pairs = (bencode_pair **)calloc(count+1, sizeof(bencode_pair *));
+		if (new_pairs == NULL)
 		{
-			if (key_array.data[i] == ':')
+			fprintf(stderr, "could not allocate memory for dictionary pairs list\n");
+			goto free_pair;
+		}
+
+		if (count == 0)
+		{
+			new_pairs[0] = new_pair;
+		}
+		else
+		{
+			for (int i = 0; i < count; ++i)
 			{
-				key_start_index = i + 1;
-				break;
+				new_pairs[i] = pairs[i];
 			}
+			new_pairs[count] = new_pair;
+			free(pairs);
 		}
 
-		if ((key_array.size - key_start_index) != key_length)
+		pairs = new_pairs;
+		++count;
+		data += value_size;
+		max_size -= value_size;
+		continue;
+
+		free_pair:
+		bencode_free_pair(new_pair);
+		free_value:
+		bencode_free_data(value);
+		free_key:
+		bencode_free_string(key);
+		free_existing_pairs:
+		for (int i = 0; i < count; ++i)
+		{
+			bencode_free_pair(pairs[i]);
+		}
+		free(pairs);
+		return NULL;
+	}
+
+	bencode_dictionary *dict = (bencode_dictionary *)calloc(1, sizeof(bencode_dictionary));
+	if (dict == NULL)
+	{
+		fprintf(stderr, "could not allocate memory for dictionary\n");
+		goto free_pairs;
+	}
+
+	bencode_data *raw = bencode_allocate_data(in_data);
+	if (raw == NULL)
+	{
+		fprintf(stderr, "could not allocate memory for dictionary data\n");
+		goto free_dict;
+	}
+
+	dict->raw = raw;
+	dict->values = pairs;
+	dict->count = count;
+	return dict;
+
+	free_dict:
+	free(dict);
+	free_pairs:
+	for (int i = 0; i < count; ++i)
+	{
+		bencode_free_pair(pairs[i]);
+	}
+	free(pairs);
+	return NULL;
+}
+
+bencode_string *bencode_allocate_string(bencode_data in_data)
+{
+	size_t string_size;
+	if (bencode_size_string(in_data.data, in_data.size, &string_size) != 0)
+	{
+		fprintf(stderr, "could not calculate size of string\n");
+		return NULL;
+	}
+
+	if (string_size != in_data.size)
+	{
+		fprintf(stderr, "calculated string size differs from given data size\n");
+		return NULL;
+	}
+
+	size_t length = 0;
+	uint8_t *data = in_data.data;
+	while (data[0] != ':')
+	{
+		int n = data[0] - '0';
+		length = length * 10 + n;
+		++data;
+	}
+
+	char *value = (char *)calloc(length+1, sizeof(char));
+	if (value == NULL)
+	{
+		fprintf(stderr, "could not allocate memory for string value\n");
+		return NULL;
+	}
+
+	memcpy(value, data+1, length);
+
+	bencode_string *string = (bencode_string *)calloc(1, sizeof(bencode_string));
+	if (string == NULL)
+	{
+		fprintf(stderr, "could not allocate memory for string\n");
+		goto free_value;
+	}
+
+	bencode_data *raw = bencode_allocate_data(in_data);
+	if (raw == NULL)
+	{
+		fprintf(stderr, "could not allocate memory for string data\n");
+		goto free_string;
+	}
+
+	string->raw = raw;
+	string->value = value;
+	string->length = length;
+	return string;
+
+	free_string:
+	free(string);
+	free_value:
+	free(value);
+	return NULL;
+}
+
+bencode_integer *bencode_allocate_integer(bencode_data in_data)
+{
+	size_t integer_size;
+	if (bencode_size_integer(in_data.data, in_data.size, &integer_size) != 0)
+	{
+		fprintf(stderr, "could not calculate size of integer\n");
+		return NULL;
+	}
+
+	if (integer_size != in_data.size)
+	{
+		fprintf(stderr, "calculated integer size differs from given data size\n");
+		return NULL;
+	}
+
+	int64_t value = 0;
+	uint8_t *data = in_data.data+1;
+	while (data[0] != 'e')
+	{
+		int n = data[0] - '0';
+		value = value * 10 + n;
+		++data;
+	}
+
+	bencode_integer *integer = (bencode_integer *)calloc(1, sizeof(bencode_integer));
+	if (integer == NULL)
+	{
+		fprintf(stderr, "could not allocate memory for integer\n");
+		return NULL;
+	}
+
+	bencode_data *raw = bencode_allocate_data(in_data);
+	if (raw == NULL)
+	{
+		fprintf(stderr, "could not allocate memory for string data\n");
+		goto free_integer;
+	}
+
+	integer->raw = raw;
+	integer->value = value;
+	return integer;
+
+	free_integer:
+	free(integer);
+	return NULL;
+}
+
+bencode_data *bencode_allocate_data(bencode_data in_data)
+{
+	bencode_data *data = (bencode_data *)calloc(1, sizeof(bencode_data));
+	if (data == NULL)
+	{
+		return NULL;
+	}
+
+	data->size = in_data.size;
+	data->data = (uint8_t *)calloc(data->size, sizeof(uint8_t));
+	if (data->data == NULL)
+	{
+		free(data);
+		return NULL;
+	}
+
+	memcpy(data->data, in_data.data, data->size);
+	return data;
+}
+
+void bencode_free_data(bencode_data *in_data)
+{
+	free(in_data->data);
+	free(in_data);
+}
+
+void bencode_free_string(bencode_string *in_string)
+{
+	bencode_free_data(in_string->raw);
+	free(in_string->value);
+	free(in_string);
+}
+
+void bencode_free_integer(bencode_integer *in_integer)
+{
+	bencode_free_data(in_integer->raw);
+	free(in_integer);
+}
+
+void bencode_free_list(bencode_list *in_list)
+{
+	bencode_free_data(in_list->raw);
+	for (int i = 0; i < in_list->count; ++i)
+	{
+		bencode_free_data(in_list->values[i]);
+	}
+	free(in_list->values);
+	free(in_list);
+}
+
+void bencode_free_dictionary(bencode_dictionary *in_dictionary)
+{
+	bencode_free_data(in_dictionary->raw);
+	for (int i = 0; i < in_dictionary->count; ++i)
+	{
+		bencode_free_pair(in_dictionary->values[i]);
+	}
+	free(in_dictionary->values);
+	free(in_dictionary);
+}
+
+void bencode_free_pair(bencode_pair *in_pair)
+{
+	bencode_free_string(in_pair->key);
+	bencode_free_data(in_pair->value);
+	free(in_pair);
+}
+
+int bencode_get_pair_with_key(bencode_dictionary in_dictionary, char *in_key, size_t in_keylen, bencode_pair *out_pair)
+{
+	for (int i = 0; i < in_dictionary.count; ++i)
+	{
+		bencode_pair *pair = in_dictionary.values[i];
+		if (pair->key->length != in_keylen)
 		{
 			continue;
 		}
 
-		int32_t match = 1;
-		for (int32_t j = 0; j < key_length; ++j)
+		char *key = pair->key->value;
+		int32_t is_match = 1;
+		for (int c = 0; c < in_keylen; ++c)
 		{
-			if (key_array.data[j + key_start_index] != key[j])
+			if (key[c] != in_key[c])
 			{
-				match = 0;
+				is_match = 0;
 				break;
 			}
 		}
 
-		if (!match)
+		if (is_match)
+		{
+			*out_pair = *pair;
+			return 0;
+		}
+	}
+
+	return 1;
+}
+
+char *bencode_allocate_string_copy(bencode_string in_string)
+{
+	char *copy = (char *)calloc(in_string.length+1, sizeof(char));
+	if (copy == NULL)
+	{
+		fprintf(stderr, "could not allocate memory for string copy\n");
+		return NULL;
+	}
+
+	memcpy(copy, in_string.value, in_string.length);
+	return copy;
+}
+
+static int bencode_size_data(uint8_t *in_data, size_t in_max_size, size_t *out_size)
+{
+	if (in_max_size < 1)
+	{
+		return 1;
+	}
+
+	char c = in_data[0];
+	if (c >= '0' && c <= '9')
+	{
+		return bencode_size_string(in_data, in_max_size, out_size);
+	}
+	else if (c == 'i')
+	{
+		return bencode_size_integer(in_data, in_max_size, out_size);
+	}
+	else if (c == 'l')
+	{
+		return bencode_size_list(in_data, in_max_size, out_size);
+	}
+	else if (c == 'd')
+	{
+		return bencode_size_dictionary(in_data, in_max_size, out_size);
+	}
+	else
+	{
+		return 1;
+	}
+}
+
+static int bencode_size_string(uint8_t *in_data, size_t in_max_size, size_t *out_size)
+{
+	if (in_max_size < 2 || in_data[0] < '0' || in_data[0] > '9')
+	{
+		return 1;
+	}
+
+	size_t num = 0;
+	for (int i = 0; i < in_max_size; ++i)
+	{
+		char c = in_data[i];
+		if (c >= '0' && c <= '9')
+		{
+			int n = c - '0';
+			num = num * 10 + n;
+			continue;
+		}
+		else if (c == ':')
+		{
+			int calc_size = i + num + 1;
+			if (calc_size > in_max_size)
+			{
+				return 1;
+			}
+			*out_size = calc_size;
+			return 0;
+		}
+		else
+		{
+			break;
+		}
+	}
+	return 1;
+}
+
+static int bencode_size_integer(uint8_t *in_data, size_t in_max_size, size_t *out_size)
+{
+	if (in_max_size < 3 || in_data[0] != 'i')
+	{
+		return 1;
+	}
+
+	for (int i = 1; i < in_max_size; ++i)
+	{
+		char c = in_data[i];
+		if (c >= '0' && c <= '9')
 		{
 			continue;
 		}
+		else if (c == 'e')
+		{
+			int calc_size = i + 1;
+			if (calc_size > in_max_size)
+			{
+				return 1;
+			}
+			*out_size = calc_size;
+			return 0;
+		}
+		else
+		{
+			break;
+		}
+	}
+	return 1;
+}
 
-		*out_value = value_array;
-		return 0;
+static int bencode_size_list(uint8_t *in_data, size_t in_max_size, size_t *out_size)
+{
+	if (in_max_size < 2 || in_data[0] != 'l')
+	{
+		return 1;
+	}
+
+	for (int i = 1; i < in_max_size;)
+	{
+		if (in_data[i] == 'e')
+		{
+			int calc_size = i + 1;
+			if (calc_size > in_max_size)
+			{
+				return 1;
+			}
+			*out_size = calc_size;
+			return 0;
+		}
+
+		size_t elem_size;
+		if (bencode_size_data(in_data+i, in_max_size-i, &elem_size) != 0)
+		{
+			return 1;
+		}
+
+		i += elem_size;
+	}
+
+	return 1;
+}
+
+static int bencode_size_dictionary(uint8_t *in_data, size_t in_max_size, size_t *out_size)
+{
+	if (in_max_size < 2 || in_data[0] != 'd')
+	{
+		return 1;
+	}
+
+	for (int i = 1; i < in_max_size;)
+	{
+		if (in_data[i] == 'e')
+		{
+			int calc_size = i + 1;
+			if (calc_size > in_max_size)
+			{
+				return 1;
+			}
+			*out_size = calc_size;
+			return 0;
+		}
+
+		size_t elem_size;
+		if (bencode_size_data(in_data+i, in_max_size-i, &elem_size) != 0)
+		{
+			return 1;
+		}
+
+		i += elem_size;
+
+		if (bencode_size_data(in_data+i, in_max_size-i, &elem_size) != 0)
+		{
+			return 1;
+		}
+
+		i += elem_size;
 	}
 
 	return 1;

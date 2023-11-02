@@ -32,6 +32,8 @@ cl /Zi ^
 	/I"%VCPKG_X64_PATH%\include" ^
 	"%PROJ_DIR%\src\remote_bt_cli.c" ^
 	"%PROJ_DIR%\src\remote_bt.c" ^
+	"%PROJ_DIR%\src\bencode.c" ^
+	"%PROJ_DIR%\src\torrent.c" ^
 	/link /LIBPATH:"%VCPKG_X64_PATH%\lib" ^
 	ssh.lib || goto :error
 goto :EOF

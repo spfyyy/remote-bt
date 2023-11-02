@@ -1,8 +1,10 @@
 #include <libssh/libssh.h>
 #include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "remote_bt.h"
 #include "types.h"
-#include "bencode.c"
+#include "torrent.h"
 #include "ssh_config.c"
 
 #ifndef REMOTE_BT_COMMAND_MAX_LENGTH
@@ -18,10 +20,6 @@ static void end_ssh_connection(ssh_session in_remote_session);
 static int run_remote_command(ssh_session in_remote_session, char *in_command, u8_array *out_stdout_data);
 static int fetch_torrent_file(ssh_session in_remote_session, char *in_link, u8_array *out_torrent);
 static char *allocate_command(char *in_format, ...);
-static char *allocate_announce_from_torrent(u8_array in_torrent);
-static char *allocate_name_from_info(u8_array in_info);
-static int check_torrent_is_multifile_from_info(u8_array in_info);
-static int get_piece_length_from_info(u8_array in_info, int64_t *out_piece_length);
 
 int remote_bt_init(void)
 {
@@ -49,64 +47,68 @@ int remote_bt_download(char *link)
 		return 1;
 	}
 
-	u8_array torrent;
-	if (fetch_torrent_file(remote_session, link, &torrent) != 0)
+	u8_array torrent_raw;
+	if (fetch_torrent_file(remote_session, link, &torrent_raw) != 0)
 	{
 		fprintf(stderr, "failed to run remote command\n");
 		end_ssh_connection(remote_session);
 		return 1;
 	}
 
-	u8_array info;
-	if (bencode_get_value_for_key(torrent, "info", 4, &info) != 0)
-	{
-		fprintf(stderr, "failed to get info dictionary from torrent\n");
-		free(torrent.data);
-		end_ssh_connection(remote_session);
-		return 1;
-	}
+	bencode_dictionary *dict = bencode_allocate_dictionary((bencode_data){torrent_raw.data,torrent_raw.size});
+	torrent *t = torrent_allocate_from_dictionary(*dict);
+	bencode_free_dictionary(dict);
 
-	char *announce = allocate_announce_from_torrent(torrent);
-	if (announce == NULL)
-	{
-		fprintf(stderr, "failed to get torrent announce value\n");
-		free(torrent.data);
-		end_ssh_connection(remote_session);
-		return 1;
-	}
+	// u8_array info;
+	// if (bencode_get_value_for_key(torrent, "info", 4, &info) != 0)
+	// {
+	// 	fprintf(stderr, "failed to get info dictionary from torrent\n");
+	// 	free(torrent.data);
+	// 	end_ssh_connection(remote_session);
+	// 	return 1;
+	// }
+
+	// char *announce = allocate_announce_from_torrent(torrent);
+	// if (announce == NULL)
+	// {
+	// 	fprintf(stderr, "failed to get torrent announce value\n");
+	// 	free(torrent.data);
+	// 	end_ssh_connection(remote_session);
+	// 	return 1;
+	// }
 
 
-	char *name = allocate_name_from_info(info);
-	if (name == NULL)
-	{
-		fprintf(stderr, "failed to get torrent name value\n");
-		free(announce);
-		free(torrent.data);
-		end_ssh_connection(remote_session);
-		return 1;
-	}
+	// char *name = allocate_name_from_info(info);
+	// if (name == NULL)
+	// {
+	// 	fprintf(stderr, "failed to get torrent name value\n");
+	// 	free(announce);
+	// 	free(torrent.data);
+	// 	end_ssh_connection(remote_session);
+	// 	return 1;
+	// }
 
-	int64_t piece_length;
-	if (get_piece_length_from_info(info, &piece_length) != 0)
-	{
-		fprintf(stderr, "failed to get torrent piece length value\n");
-		free(name);
-		free(announce);
-		free(torrent.data);
-		end_ssh_connection(remote_session);
-		return 1;
-	}
+	// int64_t piece_length;
+	// if (get_piece_length_from_info(info, &piece_length) != 0)
+	// {
+	// 	fprintf(stderr, "failed to get torrent piece length value\n");
+	// 	free(name);
+	// 	free(announce);
+	// 	free(torrent.data);
+	// 	end_ssh_connection(remote_session);
+	// 	return 1;
+	// }
 
-	int is_multifile = check_torrent_is_multifile_from_info(info);
+	// int is_multifile = check_torrent_is_multifile_from_info(info);
 
-	fprintf(stdout, "name: %s\n", name);
-	fprintf(stdout, "announce: %s\n", announce);
-	fprintf(stdout, "piece length: %lld bytes\n", piece_length);
-	fprintf(stdout, "is_multifile: %s\n", is_multifile ? "true" : "false");
+	// fprintf(stdout, "name: %s\n", name);
+	// fprintf(stdout, "announce: %s\n", announce);
+	// fprintf(stdout, "piece length: %lld bytes\n", piece_length);
+	// fprintf(stdout, "is_multifile: %s\n", is_multifile ? "true" : "false");
 
-	free(name);
-	free(announce);
-	free(torrent.data);
+	// free(name);
+	// free(announce);
+	free(torrent_raw.data);
 	end_ssh_connection(remote_session);
 	return 0;
 }
@@ -329,46 +331,4 @@ static char *allocate_command(char *in_format, ...)
 
 	va_end(arglist);
 	return command;
-}
-
-static char *allocate_announce_from_torrent(u8_array in_torrent)
-{
-	u8_array bencoded_announce;
-	if (bencode_get_value_for_key(in_torrent, "announce", 8, &bencoded_announce) != 0)
-	{
-		fprintf(stderr, "did not find announce key in dictionary\n");
-		return NULL;
-	}
-
-	return bencode_allocate_string_value(bencoded_announce);
-}
-
-static char *allocate_name_from_info(u8_array in_info)
-{
-	u8_array bencoded_name;
-	if (bencode_get_value_for_key(in_info, "name", 4, &bencoded_name) != 0)
-	{
-		fprintf(stderr, "did not find name key in dictionary\n");
-		return NULL;
-	}
-
-	return bencode_allocate_string_value(bencoded_name);
-}
-
-static int check_torrent_is_multifile_from_info(u8_array in_info)
-{
-	u8_array bencoded_length;
-	return bencode_get_value_for_key(in_info, "length", 6, &bencoded_length) != 0;
-}
-
-static int get_piece_length_from_info(u8_array in_info, int64_t *out_piece_length)
-{
-	u8_array bencoded_piece_length;
-	if (bencode_get_value_for_key(in_info, "piece length", 12, &bencoded_piece_length) != 0)
-	{
-		fprintf(stderr, "did not find piece length key in dictionary\n");
-		return 1;
-	}
-
-	return bencode_get_number_value(bencoded_piece_length, out_piece_length);
 }
