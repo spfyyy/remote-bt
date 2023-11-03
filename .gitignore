@@ -1,4 +1,4 @@
 build/
 tmux*
 .vscode
-src/ssh_config.c
+ssh_config.c
