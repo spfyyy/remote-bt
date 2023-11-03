@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "bencode.h"
 
-typedef struct torrent
+typedef struct torrent_metadata
 {
 	char *announce;
 	char *name;
@@ -12,8 +12,10 @@ typedef struct torrent
 	char *pieces;
 	int64_t length; // TODO: support multifile
 	int32_t is_multifile;
-} torrent;
+} torrent_metadata;
 
-torrent *torrent_allocate_from_dictionary(bencode_dictionary in_dictionary);
+torrent_metadata *torrent_allocate_metadata_from_dictionary(bencode_dictionary in_dictionary);
+
+void torrent_free_metadata(torrent_metadata *metadata);
 
 #endif

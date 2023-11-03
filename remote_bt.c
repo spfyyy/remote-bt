@@ -56,59 +56,16 @@ int remote_bt_download(char *link)
 	}
 
 	bencode_dictionary *dict = bencode_allocate_dictionary((bencode_data){torrent_raw.data,torrent_raw.size});
-	torrent *t = torrent_allocate_from_dictionary(*dict);
+	free(torrent_raw.data);
+	torrent_metadata *t = torrent_allocate_metadata_from_dictionary(*dict);
 	bencode_free_dictionary(dict);
 
-	// u8_array info;
-	// if (bencode_get_value_for_key(torrent, "info", 4, &info) != 0)
-	// {
-	// 	fprintf(stderr, "failed to get info dictionary from torrent\n");
-	// 	free(torrent.data);
-	// 	end_ssh_connection(remote_session);
-	// 	return 1;
-	// }
+	fprintf(stdout, "name: %s\n", t->name);
+	fprintf(stdout, "announce: %s\n", t->announce);
+	fprintf(stdout, "piece length: %lld bytes\n", t->piece_length);
+	fprintf(stdout, "is_multifile: %s\n", t->is_multifile ? "true" : "false");
+	torrent_free_metadata(t);
 
-	// char *announce = allocate_announce_from_torrent(torrent);
-	// if (announce == NULL)
-	// {
-	// 	fprintf(stderr, "failed to get torrent announce value\n");
-	// 	free(torrent.data);
-	// 	end_ssh_connection(remote_session);
-	// 	return 1;
-	// }
-
-
-	// char *name = allocate_name_from_info(info);
-	// if (name == NULL)
-	// {
-	// 	fprintf(stderr, "failed to get torrent name value\n");
-	// 	free(announce);
-	// 	free(torrent.data);
-	// 	end_ssh_connection(remote_session);
-	// 	return 1;
-	// }
-
-	// int64_t piece_length;
-	// if (get_piece_length_from_info(info, &piece_length) != 0)
-	// {
-	// 	fprintf(stderr, "failed to get torrent piece length value\n");
-	// 	free(name);
-	// 	free(announce);
-	// 	free(torrent.data);
-	// 	end_ssh_connection(remote_session);
-	// 	return 1;
-	// }
-
-	// int is_multifile = check_torrent_is_multifile_from_info(info);
-
-	// fprintf(stdout, "name: %s\n", name);
-	// fprintf(stdout, "announce: %s\n", announce);
-	// fprintf(stdout, "piece length: %lld bytes\n", piece_length);
-	// fprintf(stdout, "is_multifile: %s\n", is_multifile ? "true" : "false");
-
-	// free(name);
-	// free(announce);
-	free(torrent_raw.data);
 	end_ssh_connection(remote_session);
 	return 0;
 }

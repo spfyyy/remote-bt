@@ -1,5 +1,5 @@
 CC=cc
-CFLAGS=-g
+CFLAGS=-g -fsanitize=address
 
 cli: build/remote_bt_cli.exe
 

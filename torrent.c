@@ -3,7 +3,7 @@
 #include <string.h>
 #include "torrent.h"
 
-torrent *torrent_allocate_from_dictionary(bencode_dictionary in_dictionary)
+torrent_metadata *torrent_allocate_metadata_from_dictionary(bencode_dictionary in_dictionary)
 {
 	bencode_pair announce_pair;
 	if (bencode_get_pair_with_key(in_dictionary, "announce", 8, &announce_pair) != 0)
@@ -115,7 +115,7 @@ torrent *torrent_allocate_from_dictionary(bencode_dictionary in_dictionary)
 
 	int64_t length = bencode_length->value;
 
-	torrent *result = (torrent *)calloc(1, sizeof(torrent));
+	torrent_metadata *result = (torrent_metadata *)calloc(1, sizeof(torrent_metadata));
 	if (result == NULL)
 	{
 		fprintf(stderr, "could not allocate memory for torrent\n");
@@ -157,4 +157,12 @@ torrent *torrent_allocate_from_dictionary(bencode_dictionary in_dictionary)
 	free_info:
 	bencode_free_dictionary(info);
 	return NULL;
+}
+
+void torrent_free_metadata(torrent_metadata *metadata)
+{
+	free(metadata->announce);
+	free(metadata->name);
+	free(metadata->pieces);
+	free(metadata);
 }
