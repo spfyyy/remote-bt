@@ -3,7 +3,7 @@ a bittorrent client routed over ssh. this is still a wip, i don't know if it act
 ## building
 just run `make`!
 
-on windows, i've aliased `cc` to run `clang`, which you can install optionally as part of the "desktop development with c/c++" package when installing visual studio.
+on windows, i installed `make` with winget. i've aliased `cc` to run `clang`, which you can install optionally as part of the "desktop development with c/c++" package when installing visual studio.
 ### dependencies
 this project dynamically links with libssh. hopefully this can be installed with your package manager on unix/linux. for building on windows, i used [vcpkg](https://github.com/microsoft/vcpkg) to compile `libssh[openssl]`. then, you can add the necessary vcpkg directories to your system environment variables so `clang` can find the libraries.
 ### configuring ssh
