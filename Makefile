@@ -2,7 +2,7 @@ ifdef ComSpec
 O=.obj
 EXE=.exe
 REMOTE_BT_LIB=remote_bt.lib
-CFLAGS=-Zi -Fobuild/ -Fdbuild/ -Febuild/
+CFLAGS=/Zi /Fobuild/ /Fdbuild/ /Febuild/ /std:c11 /W3 /WX /wd4267
 else
 O=.o
 EXE=
@@ -22,13 +22,13 @@ build/$(REMOTE_BT_LIB): build/remote_bt$(O) build/torrent$(O) build/bencode$(O)
 # ar r $@ $^
 
 build/remote_bt$(O): remote_bt.c remote_bt.h types.h ssh_config.c torrent.h bencode.h
-	$(CC) $(CFLAGS) -c remote_bt.c
+	$(CC) $(CFLAGS) /c remote_bt.c
 
 build/torrent$(O): torrent.c torrent.h bencode.h
-	$(CC) $(CFLAGS) -c torrent.c
+	$(CC) $(CFLAGS) /c torrent.c
 
 build/bencode$(O): bencode.c bencode.h
-	$(CC) $(CFLAGS) -c bencode.c
+	$(CC) $(CFLAGS) /c bencode.c
 
 clean:
-	rm build/*$(O) build/*.pdb build/*.ilk build/$(REMOTE_BT_LIB) build/remote_bt_cli$(EXE) &2>/dev/null
+	rm build/*$(O) build/*.pdb build/*.ilk build/$(REMOTE_BT_LIB) build/remote_bt_cli$(EXE)
