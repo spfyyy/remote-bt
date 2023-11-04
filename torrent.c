@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <openssl/sha.h>
 #include "torrent.h"
 
 torrent_metadata *torrent_allocate_metadata_from_dictionary(bencode_dictionary in_dictionary)
@@ -115,11 +116,20 @@ torrent_metadata *torrent_allocate_metadata_from_dictionary(bencode_dictionary i
 
 	int64_t length = bencode_length->value;
 
+	uint8_t *info_hash = (uint8_t *)calloc(INFO_HASH_SIZE, sizeof(uint8_t));
+	if (info_hash == NULL)
+	{
+		fprintf(stderr, "could not allocate memory for info hash\n");
+		goto free_bencode_length;
+	}
+
+	SHA1(info->raw->data, info->raw->size, info_hash);
+
 	torrent_metadata *result = (torrent_metadata *)calloc(1, sizeof(torrent_metadata));
 	if (result == NULL)
 	{
 		fprintf(stderr, "could not allocate memory for torrent\n");
-		goto free_bencode_length;
+		goto free_info_hash;
 	}
 
 	result->announce = announce;
@@ -128,6 +138,7 @@ torrent_metadata *torrent_allocate_metadata_from_dictionary(bencode_dictionary i
 	result->pieces = pieces;
 	result->length = length;
 	result->is_multifile = 0;
+	result->info_hash = info_hash;
 
 	bencode_free_integer(bencode_length);
 	bencode_free_string(bencode_pieces);
@@ -138,6 +149,8 @@ torrent_metadata *torrent_allocate_metadata_from_dictionary(bencode_dictionary i
 
 	return result;
 
+	free_info_hash:
+	free(info_hash);
 	free_bencode_length:
 	bencode_free_integer(bencode_length);
 	free_pieces:
@@ -164,5 +177,6 @@ void torrent_free_metadata(torrent_metadata *metadata)
 	free(metadata->announce);
 	free(metadata->name);
 	free(metadata->pieces);
+	free(metadata->info_hash);
 	free(metadata);
 }
