@@ -1,4 +1,4 @@
-CFLAGS=-g -fsanitize=address
+CFLAGS=-Werror -g -fsanitize=address
 
 ifdef ComSpec
 O=.obj

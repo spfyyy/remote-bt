@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "remote_bt.h"
 #include "types.h"
 #include "torrent.h"
@@ -62,7 +63,6 @@ int remote_bt_download(char *link)
 
 	fprintf(stdout, "name: %s\n", t->name);
 	fprintf(stdout, "announce: %s\n", t->announce);
-	fprintf(stdout, "piece length: %lld bytes\n", t->piece_length);
 	fprintf(stdout, "is_multifile: %s\n", t->is_multifile ? "true" : "false");
 	torrent_free_metadata(t);
 
