@@ -1,16 +1,33 @@
-CC=cc
 CFLAGS=-g -fsanitize=address
 
-cli: build/remote_bt_cli.exe
+ifdef ComSpec
+O=.obj
+EXE=.exe
+REMOTE_BT_LIB=remote_bt.lib
+else
+O=.o
+EXE=
+REMOTE_BT_LIB=libremote_bt.a
+endif
 
-build/remote_bt_cli.exe: remote_bt_cli.c build/remote_bt.o build/bencode.o build/torrent.o
-	$(CC) $(CFLAGS) -o build/remote_bt_cli.exe remote_bt_cli.c build/remote_bt.o build/torrent.o build/bencode.o -lssh
+lib: build/$(REMOTE_BT_LIB)
 
-build/remote_bt.o: remote_bt.c remote_bt.h types.h ssh_config.c
-	$(CC) $(CFLAGS) -c -o build/remote_bt.o remote_bt.c
+cli: build/remote_bt_cli$(EXE)
 
-build/torrent.o: torrent.c torrent.h
-	$(CC) $(CFLAGS) -c -o build/torrent.o torrent.c
+build/remote_bt_cli$(EXE): lib remote_bt_cli.c
+	$(CC) $(CFLAGS) -o $@ remote_bt_cli.c -Lbuild -lremote_bt -lssh
 
-build/bencode.o: bencode.c bencode.h
-	$(CC) $(CFLAGS) -c -o build/bencode.o bencode.c
+build/$(REMOTE_BT_LIB): build/remote_bt$(O) build/torrent$(O) build/bencode$(O)
+	ar r $@ $^
+
+build/remote_bt$(O): remote_bt.c remote_bt.h types.h torrent.h ssh_config.c
+	$(CC) $(CFLAGS) -c -o $@ remote_bt.c
+
+build/torrent$(O): torrent.c torrent.h
+	$(CC) $(CFLAGS) -c -o $@ torrent.c
+
+build/bencode$(O): bencode.c bencode.h
+	$(CC) $(CFLAGS) -c -o $@ bencode.c
+
+clean:
+	rm build/*$(O) build/$(REMOTE_BT_LIB) build/remote_bt_cli$(EXE)

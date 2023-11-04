@@ -127,7 +127,7 @@ torrent_metadata *torrent_allocate_metadata_from_dictionary(bencode_dictionary i
 	result->piece_length = piece_length;
 	result->pieces = pieces;
 	result->length = length;
-	result->is_multifile = 1;
+	result->is_multifile = 0;
 
 	bencode_free_integer(bencode_length);
 	bencode_free_string(bencode_pieces);
