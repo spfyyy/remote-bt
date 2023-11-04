@@ -20,10 +20,10 @@ build/remote_bt_cli$(EXE): lib remote_bt_cli.c
 build/$(REMOTE_BT_LIB): build/remote_bt$(O) build/torrent$(O) build/bencode$(O)
 	ar r $@ $^
 
-build/remote_bt$(O): remote_bt.c remote_bt.h types.h torrent.h ssh_config.c
+build/remote_bt$(O): remote_bt.c remote_bt.h types.h ssh_config.c torrent.h bencode.h
 	$(CC) $(CFLAGS) -c -o $@ remote_bt.c
 
-build/torrent$(O): torrent.c torrent.h
+build/torrent$(O): torrent.c torrent.h bencode.h
 	$(CC) $(CFLAGS) -c -o $@ torrent.c
 
 build/bencode$(O): bencode.c bencode.h
