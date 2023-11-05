@@ -10,346 +10,120 @@ static int bencode_size_integer(uint8_t *in_data, size_t in_max_size, size_t *ou
 static int bencode_size_list(uint8_t *in_data, size_t in_max_size, size_t *out_size);
 static int bencode_size_dictionary(uint8_t *in_data, size_t in_max_size, size_t *out_size);
 
-bencode_dictionary *bencode_allocate_dictionary(bencode_data in_data)
+int bencode_value_for_key(uint8_t *dictionary, size_t dictionary_size, char *key, size_t key_length, uint8_t **out_bencoded_value, size_t *out_bencoded_value_size)
 {
-	size_t dict_size;
-	if (bencode_size_dictionary(in_data.data, in_data.size, &dict_size) != 0)
-	{
-		fprintf(stderr, "could not calculate size of dictionary\n");
-		return NULL;
-	}
-
-	if (dict_size != in_data.size)
-	{
-		fprintf(stderr, "calculated dictionary size differs from given data size\n");
-		return NULL;
-	}
-
-	bencode_pair **pairs;
-	size_t count = 0;
-	uint8_t *data = in_data.data+1;
-	size_t max_size = in_data.size-1;
-	while (data[0] != 'e')
+	size_t position = 1;
+	while (position < dictionary_size)
 	{
 		size_t key_size;
-		bencode_size_string(data, max_size, &key_size);
-		bencode_string *key = bencode_allocate_string((bencode_data){data,key_size});
-		if (key == NULL)
+		if (bencode_size_string(dictionary+position, dictionary_size-position, &key_size) != 0)
 		{
-			fprintf(stderr, "could not allocate memory for dictionary key\n");
-			goto free_existing_pairs;
+			return 1;
 		}
 
-		data += key_size;
-		max_size -= key_size;
+		uint8_t *key_string;
+		size_t key_string_length;
+		if (bencode_parse_string(dictionary+position, key_size, &key_string, &key_string_length) != 0)
+		{
+			return 1;
+		}
 
+		position += key_size;
 		size_t value_size;
-		bencode_size_data(data, max_size, &value_size);
-		bencode_data *value = bencode_allocate_data((bencode_data){data,value_size});
-		if (value == NULL)
+		if (bencode_size_data(dictionary+position, dictionary_size - position, &value_size) != 0)
 		{
-			fprintf(stderr, "could not allocate memory for dictionary value\n");
-			goto free_key;
+			return 1;
 		}
 
-		bencode_pair *new_pair = (bencode_pair *)calloc(1, sizeof(bencode_pair));
-		if (new_pair == NULL)
+		int32_t keys_match = 0;
+		if (key_string_length == key_length)
 		{
-			fprintf(stderr, "could not allocate memory for dictionary pair\n");
-			goto free_value;
-		}
-
-		new_pair->key = key;
-		new_pair->value = value;
-
-		bencode_pair **new_pairs = (bencode_pair **)calloc(count+1, sizeof(bencode_pair *));
-		if (new_pairs == NULL)
-		{
-			fprintf(stderr, "could not allocate memory for dictionary pairs list\n");
-			goto free_pair;
-		}
-
-		if (count == 0)
-		{
-			new_pairs[0] = new_pair;
-		}
-		else
-		{
-			for (int i = 0; i < count; ++i)
+			keys_match = 1;
+			for (int i = 0; i < key_length; ++i)
 			{
-				new_pairs[i] = pairs[i];
-			}
-			new_pairs[count] = new_pair;
-			free(pairs);
-		}
-
-		pairs = new_pairs;
-		++count;
-		data += value_size;
-		max_size -= value_size;
-		continue;
-
-		free_pair:
-		bencode_free_pair(new_pair);
-		free_value:
-		bencode_free_data(value);
-		free_key:
-		bencode_free_string(key);
-		free_existing_pairs:
-		for (int i = 0; i < count; ++i)
-		{
-			bencode_free_pair(pairs[i]);
-		}
-		free(pairs);
-		return NULL;
-	}
-
-	bencode_dictionary *dict = (bencode_dictionary *)calloc(1, sizeof(bencode_dictionary));
-	if (dict == NULL)
-	{
-		fprintf(stderr, "could not allocate memory for dictionary\n");
-		goto free_pairs;
-	}
-
-	bencode_data *raw = bencode_allocate_data(in_data);
-	if (raw == NULL)
-	{
-		fprintf(stderr, "could not allocate memory for dictionary data\n");
-		goto free_dict;
-	}
-
-	dict->raw = raw;
-	dict->values = pairs;
-	dict->count = count;
-	return dict;
-
-	free_dict:
-	free(dict);
-	free_pairs:
-	for (int i = 0; i < count; ++i)
-	{
-		bencode_free_pair(pairs[i]);
-	}
-	free(pairs);
-	return NULL;
-}
-
-bencode_string *bencode_allocate_string(bencode_data in_data)
-{
-	size_t string_size;
-	if (bencode_size_string(in_data.data, in_data.size, &string_size) != 0)
-	{
-		fprintf(stderr, "could not calculate size of string\n");
-		return NULL;
-	}
-
-	if (string_size != in_data.size)
-	{
-		fprintf(stderr, "calculated string size differs from given data size\n");
-		return NULL;
-	}
-
-	size_t length = 0;
-	uint8_t *data = in_data.data;
-	while (data[0] != ':')
-	{
-		int n = data[0] - '0';
-		length = length * 10 + n;
-		++data;
-	}
-
-	char *value = (char *)calloc(length+1, sizeof(char));
-	if (value == NULL)
-	{
-		fprintf(stderr, "could not allocate memory for string value\n");
-		return NULL;
-	}
-
-	memcpy(value, data+1, length);
-
-	bencode_string *string = (bencode_string *)calloc(1, sizeof(bencode_string));
-	if (string == NULL)
-	{
-		fprintf(stderr, "could not allocate memory for string\n");
-		goto free_value;
-	}
-
-	bencode_data *raw = bencode_allocate_data(in_data);
-	if (raw == NULL)
-	{
-		fprintf(stderr, "could not allocate memory for string data\n");
-		goto free_string;
-	}
-
-	string->raw = raw;
-	string->value = value;
-	string->length = length;
-	return string;
-
-	free_string:
-	free(string);
-	free_value:
-	free(value);
-	return NULL;
-}
-
-bencode_integer *bencode_allocate_integer(bencode_data in_data)
-{
-	size_t integer_size;
-	if (bencode_size_integer(in_data.data, in_data.size, &integer_size) != 0)
-	{
-		fprintf(stderr, "could not calculate size of integer\n");
-		return NULL;
-	}
-
-	if (integer_size != in_data.size)
-	{
-		fprintf(stderr, "calculated integer size differs from given data size\n");
-		return NULL;
-	}
-
-	int64_t value = 0;
-	uint8_t *data = in_data.data+1;
-	while (data[0] != 'e')
-	{
-		int n = data[0] - '0';
-		value = value * 10 + n;
-		++data;
-	}
-
-	bencode_integer *integer = (bencode_integer *)calloc(1, sizeof(bencode_integer));
-	if (integer == NULL)
-	{
-		fprintf(stderr, "could not allocate memory for integer\n");
-		return NULL;
-	}
-
-	bencode_data *raw = bencode_allocate_data(in_data);
-	if (raw == NULL)
-	{
-		fprintf(stderr, "could not allocate memory for string data\n");
-		goto free_integer;
-	}
-
-	integer->raw = raw;
-	integer->value = value;
-	return integer;
-
-	free_integer:
-	free(integer);
-	return NULL;
-}
-
-bencode_data *bencode_allocate_data(bencode_data in_data)
-{
-	bencode_data *data = (bencode_data *)calloc(1, sizeof(bencode_data));
-	if (data == NULL)
-	{
-		return NULL;
-	}
-
-	data->size = in_data.size;
-	data->data = (uint8_t *)calloc(data->size, sizeof(uint8_t));
-	if (data->data == NULL)
-	{
-		free(data);
-		return NULL;
-	}
-
-	memcpy(data->data, in_data.data, data->size);
-	return data;
-}
-
-void bencode_free_data(bencode_data *in_data)
-{
-	free(in_data->data);
-	free(in_data);
-}
-
-void bencode_free_string(bencode_string *in_string)
-{
-	bencode_free_data(in_string->raw);
-	free(in_string->value);
-	free(in_string);
-}
-
-void bencode_free_integer(bencode_integer *in_integer)
-{
-	bencode_free_data(in_integer->raw);
-	free(in_integer);
-}
-
-void bencode_free_list(bencode_list *in_list)
-{
-	bencode_free_data(in_list->raw);
-	for (int i = 0; i < in_list->count; ++i)
-	{
-		bencode_free_data(in_list->values[i]);
-	}
-	free(in_list->values);
-	free(in_list);
-}
-
-void bencode_free_dictionary(bencode_dictionary *in_dictionary)
-{
-	bencode_free_data(in_dictionary->raw);
-	for (int i = 0; i < in_dictionary->count; ++i)
-	{
-		bencode_free_pair(in_dictionary->values[i]);
-	}
-	free(in_dictionary->values);
-	free(in_dictionary);
-}
-
-void bencode_free_pair(bencode_pair *in_pair)
-{
-	bencode_free_string(in_pair->key);
-	bencode_free_data(in_pair->value);
-	free(in_pair);
-}
-
-int bencode_get_pair_with_key(bencode_dictionary in_dictionary, char *in_key, size_t in_keylen, bencode_pair *out_pair)
-{
-	for (int i = 0; i < in_dictionary.count; ++i)
-	{
-		bencode_pair *pair = in_dictionary.values[i];
-		if (pair->key->length != in_keylen)
-		{
-			continue;
-		}
-
-		char *key = pair->key->value;
-		int32_t is_match = 1;
-		for (int c = 0; c < in_keylen; ++c)
-		{
-			if (key[c] != in_key[c])
-			{
-				is_match = 0;
-				break;
+				if (key_string[i] != key[i])
+				{
+					keys_match = 0;
+					break;
+				}
 			}
 		}
 
-		if (is_match)
+		if (keys_match)
 		{
-			*out_pair = *pair;
+			*out_bencoded_value = dictionary+position;
+			*out_bencoded_value_size = value_size;
 			return 0;
 		}
+
+		position += value_size;
 	}
 
 	return 1;
 }
 
-char *bencode_allocate_string_copy(bencode_string in_string)
+int bencode_parse_string(uint8_t *bencoded_string, size_t bencoded_string_size, uint8_t **out_string, size_t *out_string_length)
 {
-	char *copy = (char *)calloc(in_string.length+1, sizeof(char));
-	if (copy == NULL)
+	if (bencoded_string_size < 2 || bencoded_string[0] < '0' || bencoded_string[0] > '9')
 	{
-		fprintf(stderr, "could not allocate memory for string copy\n");
-		return NULL;
+		return 1;
 	}
 
-	memcpy(copy, in_string.value, in_string.length);
-	return copy;
+	size_t string_length = 0;
+	size_t position = 0;
+	while (position < bencoded_string_size)
+	{
+		char c = bencoded_string[position];
+		if (c < '0' || c > '9')
+		{
+			if (c != ':')
+			{
+				return 1;
+			}
+
+			++position;
+			if (position + string_length != bencoded_string_size)
+			{
+				return 1;
+			}
+
+			*out_string = bencoded_string + position;
+			*out_string_length = string_length;
+			return 0;
+		}
+
+		int n = c - '0';
+		string_length = string_length * 10 + n;
+		++position;
+	}
+
+	return 1;
+}
+
+int bencode_parse_integer(uint8_t *bencoded_integer, size_t bencoded_integer_size, int64_t *out_integer)
+{
+	if (bencoded_integer_size < 3 || bencoded_integer[0] != 'i' || bencoded_integer[bencoded_integer_size-1] != 'e')
+	{
+		return 1;
+	}
+
+	int64_t value = 0;
+	size_t position = 1;
+	while (position < bencoded_integer_size-1)
+	{
+		char c = bencoded_integer[position];
+		if (c < '0' || c > '9')
+		{
+			return 1;
+		}
+
+		int n = c - '0';
+		value = value * 10 + n;
+		++position;
+	}
+
+	*out_integer = value;
+	return 0;
 }
 
 static int bencode_size_data(uint8_t *in_data, size_t in_max_size, size_t *out_size)

@@ -2,7 +2,7 @@ ifdef ComSpec
 O=.obj
 EXE=.exe
 REMOTE_BT_LIB=remote_bt.lib
-CFLAGS=/Zi /std:c11 /W3 /WX /wd4267
+CFLAGS=/Zi /std:c11 /WX
 COMPILE=/c
 OUTPUT=/Fobuild/ /Fdbuild/ /Febuild/
 else
@@ -32,7 +32,7 @@ else
 	ar r $@ $^
 endif
 
-build/remote_bt$(O): remote_bt.c remote_bt.h types.h ssh_config.c torrent.h bencode.h
+build/remote_bt$(O): remote_bt.c remote_bt.h types.h ssh_config.c torrent.h
 	$(CC) $(CFLAGS) $(COMPILE) $(OUTPUT) remote_bt.c
 
 build/torrent$(O): torrent.c torrent.h bencode.h

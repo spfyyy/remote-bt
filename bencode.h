@@ -3,63 +3,8 @@
 
 #include <stdint.h>
 
-/*
-Utilities for parsing bencoded binary data.
-*/
-
-typedef struct bencode_data
-{
-	uint8_t *data;
-	size_t size;
-} bencode_data;
-
-typedef struct bencode_string
-{
-	bencode_data *raw;
-	char *value;
-	size_t length;
-} bencode_string;
-
-typedef struct bencode_integer
-{
-	bencode_data *raw;
-	int64_t value;
-} bencode_integer;
-
-typedef struct bencode_list
-{
-	bencode_data *raw;
-	bencode_data **values;
-	size_t count;
-} bencode_list;
-
-typedef struct bencode_pair
-{
-	bencode_string *key;
-	bencode_data *value;
-} bencode_pair;
-
-typedef struct bencode_dictionary
-{
-	bencode_data *raw;
-	bencode_pair **values;
-	size_t count;
-} bencode_dictionary;
-
-bencode_data *bencode_allocate_data(bencode_data in_data);
-bencode_string *bencode_allocate_string(bencode_data in_data);
-bencode_integer *bencode_allocate_integer(bencode_data in_data);
-bencode_list *bencode_allocate_list(bencode_data in_data);
-bencode_dictionary *bencode_allocate_dictionary(bencode_data in_data);
-
-int bencode_get_pair_with_key(bencode_dictionary in_dictionary, char *in_key, size_t in_keylen, bencode_pair *out_pair);
-char *bencode_allocate_string_copy(bencode_string in_string);
-
-void bencode_free_data(bencode_data *in_data);
-void bencode_free_string(bencode_string *in_string);
-void bencode_free_integer(bencode_integer *in_integer);
-void bencode_free_list(bencode_list *in_list);
-void bencode_free_dictionary(bencode_dictionary *in_dictionary);
-void bencode_free_pair(bencode_pair *in_pair);
+int bencode_value_for_key(uint8_t *dictionary, size_t dictionary_size, char *key, size_t key_length, uint8_t **out_bencoded_value, size_t *out_bencoded_value_size);
+int bencode_parse_string(uint8_t *bencoded_string, size_t bencoded_string_size, uint8_t **out_string, size_t *out_string_length);
+int bencode_parse_integer(uint8_t *bencoded_integer, size_t bencoded_integer_size, int64_t *out_integer);
 
 #endif

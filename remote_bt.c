@@ -56,17 +56,15 @@ int remote_bt_download(char *link)
 		return 1;
 	}
 
-	bencode_dictionary *dict = bencode_allocate_dictionary((bencode_data){torrent_raw.data,torrent_raw.size});
+	end_ssh_connection(remote_session);
+
+	torrent_metadata *t = torrent_allocate_metadata_from_dictionary(torrent_raw.data, torrent_raw.size);
 	free(torrent_raw.data);
-	torrent_metadata *t = torrent_allocate_metadata_from_dictionary(*dict);
-	bencode_free_dictionary(dict);
 
 	fprintf(stdout, "name: %s\n", t->name);
 	fprintf(stdout, "announce: %s\n", t->announce);
 	fprintf(stdout, "is_multifile: %s\n", t->is_multifile ? "true" : "false");
-	torrent_free_metadata(t);
-
-	end_ssh_connection(remote_session);
+	free(t);
 	return 0;
 }
 

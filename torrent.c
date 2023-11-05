@@ -2,181 +2,108 @@
 #include <stdlib.h>
 #include <string.h>
 #include <openssl/sha.h>
+#include "bencode.h"
 #include "torrent.h"
 
-torrent_metadata *torrent_allocate_metadata_from_dictionary(bencode_dictionary in_dictionary)
+torrent_metadata *torrent_allocate_metadata_from_dictionary(uint8_t *dict, size_t dict_size)
 {
-	bencode_pair announce_pair;
-	if (bencode_get_pair_with_key(in_dictionary, "announce", 8, &announce_pair) != 0)
+	uint8_t *bencoded_announce;
+	size_t bencoded_announce_size;
+	if (bencode_value_for_key(dict, dict_size, "announce", 8, &bencoded_announce, &bencoded_announce_size) != 0)
 	{
-		fprintf(stderr, "could not find announce key in dictionary\n");
 		return NULL;
 	}
 
-	bencode_pair info_pair;
-	if (bencode_get_pair_with_key(in_dictionary, "info", 4, &info_pair) != 0)
+	uint8_t *announce;
+	size_t announce_length;
+	if (bencode_parse_string(bencoded_announce, bencoded_announce_size, &announce, &announce_length) != 0)
 	{
-		fprintf(stderr, "could not find info key in dictionary\n");
 		return NULL;
 	}
 
-	bencode_dictionary *info = bencode_allocate_dictionary(*info_pair.value);
-	if (info == NULL)
+	uint8_t *info;
+	size_t info_size;
+	if (bencode_value_for_key(dict, dict_size, "info", 4, &info, &info_size) != 0)
 	{
-		fprintf(stderr, "could not allocate info dictionary\n");
 		return NULL;
 	}
 
-	bencode_pair name_pair;
-	if (bencode_get_pair_with_key(*info, "name", 4, &name_pair) != 0)
+	uint8_t *bencoded_name;
+	size_t bencoded_name_size;
+	if (bencode_value_for_key(info, info_size, "name", 4, &bencoded_name, &bencoded_name_size) != 0)
 	{
-		fprintf(stderr, "could not find name key in dictionary\n");
-		goto free_info;
+		return NULL;
 	}
 
-	bencode_pair piece_length_pair;
-	if (bencode_get_pair_with_key(*info, "piece length", 12, &piece_length_pair) != 0)
+	uint8_t *name;
+	size_t name_length;
+	if (bencode_parse_string(bencoded_name, bencoded_name_size, &name, &name_length) != 0)
 	{
-		fprintf(stderr, "could not find piece length key in dictionary\n");
-		goto free_info;
+		return NULL;
 	}
 
-	bencode_pair pieces_pair;
-	if (bencode_get_pair_with_key(*info, "pieces", 6, &pieces_pair) != 0)
+	uint8_t *bencoded_piece_length;
+	size_t bencoded_piece_length_size;
+	if (bencode_value_for_key(info, info_size, "piece length", 12, &bencoded_piece_length, &bencoded_piece_length_size) != 0)
 	{
-		fprintf(stderr, "could not find pieces key in dictionary\n");
-		goto free_info;
+		return NULL;
 	}
 
-	bencode_pair length_pair;
-	if (bencode_get_pair_with_key(*info, "length", 6, &length_pair) != 0)
+	int64_t piece_length;
+	if (bencode_parse_integer(bencoded_piece_length, bencoded_piece_length_size, &piece_length) != 0)
 	{
-		// TODO: length is optional in multifile
-		fprintf(stderr, "could not find length key in dictionary\n");
-		goto free_info;
+		return NULL;
 	}
 
-	bencode_string *bencode_announce = bencode_allocate_string(*announce_pair.value);
-	if (bencode_announce == NULL)
+	uint8_t *bencoded_pieces;
+	size_t bencoded_pieces_size;
+	if (bencode_value_for_key(info, info_size, "pieces", 6, &bencoded_pieces, &bencoded_pieces_size) != 0)
 	{
-		fprintf(stderr, "could not allocate announce string\n");
-		goto free_info;
+		return NULL;
 	}
 
-	char *announce = bencode_allocate_string_copy(*bencode_announce);
-	if (announce == NULL)
+	uint8_t *pieces;
+	size_t pieces_length;
+	if (bencode_parse_string(bencoded_pieces, bencoded_pieces_size, &pieces, &pieces_length) != 0)
 	{
-		fprintf(stderr, "could not copy announce\n");
-		goto free_bencode_announce;
+		return NULL;
 	}
 
-	bencode_string *bencode_name = bencode_allocate_string(*name_pair.value);
-	if (bencode_name == NULL)
+	uint8_t *bencoded_length;
+	size_t bencoded_length_size;
+	if (bencode_value_for_key(info, info_size, "length", 6, &bencoded_length, &bencoded_length_size) != 0)
 	{
-		fprintf(stderr, "could not allocate name string\n");
-		goto free_announce;
+		return NULL;
 	}
 
-	char *name = bencode_allocate_string_copy(*bencode_name);
-	if (name == NULL)
+	int64_t length;
+	if (bencode_parse_integer(bencoded_length, bencoded_length_size, &length) != 0)
 	{
-		fprintf(stderr, "could not copy name\n");
-		goto free_bencode_name;
+		return NULL;
 	}
 
-	bencode_integer *bencode_piece_length = bencode_allocate_integer(*piece_length_pair.value);
-	if (bencode_piece_length == NULL)
+	size_t metadata_size = sizeof(torrent_metadata);
+	size_t announce_size = announce_length + 1;
+	size_t name_size = name_length + 1;
+	size_t pieces_size = pieces_length + 1;
+	size_t allocated_size = metadata_size + announce_size + name_size + pieces_size + INFO_HASH_SIZE;
+	uint8_t *data = (uint8_t *)calloc(allocated_size, sizeof(uint8_t));
+	if (data == NULL)
 	{
-		fprintf(stderr, "could not allocate piece length integer\n");
-		goto free_name;
+		return NULL;
 	}
 
-	int64_t piece_length = bencode_piece_length->value;
-
-	bencode_string *bencode_pieces = bencode_allocate_string(*pieces_pair.value);
-	if (bencode_pieces == NULL)
-	{
-		fprintf(stderr, "could not allocate pieces string\n");
-		goto free_bencode_piece_length;
-	}
-
-	char *pieces = bencode_allocate_string_copy(*bencode_pieces);
-	if (pieces == NULL)
-	{
-		fprintf(stderr, "could not copy pieces\n");
-		goto free_bencode_pieces;
-	}
-
-	bencode_integer *bencode_length = bencode_allocate_integer(*length_pair.value);
-	if (bencode_length == NULL)
-	{
-		fprintf(stderr, "could not allocate length integer\n");
-		goto free_pieces;
-	}
-
-	int64_t length = bencode_length->value;
-
-	uint8_t *info_hash = (uint8_t *)calloc(INFO_HASH_SIZE, sizeof(uint8_t));
-	if (info_hash == NULL)
-	{
-		fprintf(stderr, "could not allocate memory for info hash\n");
-		goto free_bencode_length;
-	}
-
-	SHA1(info->raw->data, info->raw->size, info_hash);
-
-	torrent_metadata *result = (torrent_metadata *)calloc(1, sizeof(torrent_metadata));
-	if (result == NULL)
-	{
-		fprintf(stderr, "could not allocate memory for torrent\n");
-		goto free_info_hash;
-	}
-
-	result->announce = announce;
-	result->name = name;
-	result->piece_length = piece_length;
-	result->pieces = pieces;
-	result->length = length;
-	result->is_multifile = 0;
-	result->info_hash = info_hash;
-
-	bencode_free_integer(bencode_length);
-	bencode_free_string(bencode_pieces);
-	bencode_free_integer(bencode_piece_length);
-	bencode_free_string(bencode_name);
-	bencode_free_string(bencode_announce);
-	bencode_free_dictionary(info);
-
-	return result;
-
-	free_info_hash:
-	free(info_hash);
-	free_bencode_length:
-	bencode_free_integer(bencode_length);
-	free_pieces:
-	free(pieces);
-	free_bencode_pieces:
-	bencode_free_string(bencode_pieces);
-	free_bencode_piece_length:
-	bencode_free_integer(bencode_piece_length);
-	free_name:
-	free(name);
-	free_bencode_name:
-	bencode_free_string(bencode_name);
-	free_announce:
-	free(announce);
-	free_bencode_announce:
-	bencode_free_string(bencode_announce);
-	free_info:
-	bencode_free_dictionary(info);
-	return NULL;
-}
-
-void torrent_free_metadata(torrent_metadata *metadata)
-{
-	free(metadata->announce);
-	free(metadata->name);
-	free(metadata->pieces);
-	free(metadata->info_hash);
-	free(metadata);
+	torrent_metadata *metadata = (torrent_metadata *)data;
+	metadata->announce = (char *)(data + metadata_size);
+	metadata->name = (char *)(data + metadata_size + announce_size);
+	metadata->pieces = (char *)(data + metadata_size + announce_size + name_size);
+	metadata->info_hash = (uint8_t *)(data + metadata_size + announce_size + name_size + pieces_size);
+	memcpy(metadata->announce, announce, announce_length);
+	memcpy(metadata->name, name, name_length);
+	memcpy(metadata->pieces, pieces, pieces_length);
+	SHA1(info, info_size, metadata->info_hash);
+	metadata->piece_length = piece_length;
+	metadata->length = length;
+	metadata->is_multifile = 0;
+	return metadata;
 }
