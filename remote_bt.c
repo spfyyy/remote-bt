@@ -60,6 +60,11 @@ int remote_bt_download(char *link)
 
 	torrent_metadata *t = torrent_allocate_metadata_from_dictionary(torrent_raw.data, torrent_raw.size);
 	free(torrent_raw.data);
+	if (t == NULL)
+	{
+		fprintf(stderr, "failed to parse torrent metadata\n");
+		return 1;
+	}
 
 	fprintf(stdout, "name: %s\n", t->name);
 	fprintf(stdout, "announce: %s\n", t->announce);
