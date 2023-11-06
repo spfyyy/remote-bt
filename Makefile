@@ -1,6 +1,7 @@
 ifdef ComSpec
 O=.obj
 EXE=.exe
+REMOTE_BT_DLL=remote_bt.dll
 REMOTE_BT_LIB=remote_bt.lib
 CFLAGS=/Zi /std:c11 /WX
 COMPILE=/c
@@ -14,21 +15,26 @@ COMPILE=-c
 OUTPUT=-o $@
 endif
 
+ifdef ComSpec
+lib: build/$(REMOTE_BT_LIB) build/$(REMOTE_BT_DLL)
+else
 lib: build/$(REMOTE_BT_LIB)
+endif
 
 cli: build/remote_bt_cli$(EXE)
 
 build/remote_bt_cli$(EXE): build/$(REMOTE_BT_LIB) remote_bt_cli.c
 ifdef ComSpec
-	$(CC) $(CFLAGS) $(OUTPUT) remote_bt_cli.c /link /LIBPATH:build remote_bt.lib ssh.lib libcrypto.lib
+	$(CC) $(CFLAGS) $(OUTPUT) remote_bt_cli.c /link /LIBPATH:build $(REMOTE_BT_LIB)
 else
 	$(CC) $(CFLAGS) $(OUTPUT) remote_bt_cli.c -Lbuild -lremote_bt -lssh -lcrypto
 endif
 
-build/$(REMOTE_BT_LIB): build/remote_bt$(O) build/torrent$(O) build/bencode$(O)
 ifdef ComSpec
-	lib $^ -OUT:$@
+build/$(REMOTE_BT_LIB) build/$(REMOTE_BT_DLL): build/remote_bt$(O) build/torrent$(O) build/bencode$(O)
+	LINK /DLL $^ ssh.lib libcrypto.lib /OUT:build\$(REMOTE_BT_DLL) /IMPLIB:build\$(REMOTE_BT_LIB)
 else
+build/$(REMOTE_BT_LIB): build/remote_bt$(O) build/torrent$(O) build/bencode$(O)
 	ar r $@ $^
 endif
 
@@ -43,7 +49,7 @@ build/bencode$(O): bencode.c bencode.h
 
 clean:
 ifdef ComSpec
-	rm build/*$(O) build/*.pdb build/*.ilk build/$(REMOTE_BT_LIB) build/remote_bt_cli$(EXE)
+	rm build/*$(O) build/*.pdb build/*.ilk build/*.ilk build/*.lib build/*.dll build/*.exe
 else
-	rm build/*$(O) build/$(REMOTE_BT_LIB) build/remote_bt_cli$(EXE)
+	rm build/*$(O) build/*.a build/*.so build/remote_bt_cli$(EXE)
 endif
