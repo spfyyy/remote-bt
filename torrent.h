@@ -1,9 +1,11 @@
 #ifndef TORRENT_H
 #define TORRENT_H
 
+
 #include <stdint.h>
 
 #define INFO_HASH_SIZE 20
+#define PEER_ID_SIZE 20
 
 typedef struct torrent_metadata
 {
@@ -13,9 +15,10 @@ typedef struct torrent_metadata
 	char *pieces;
 	int64_t length; // TODO: support multifile
 	int32_t is_multifile;
-	uint8_t *info_hash;
+	uint8_t *info_hash_bytes;
 } torrent_metadata;
 
 torrent_metadata *torrent_allocate_metadata_from_dictionary(uint8_t *dict, size_t dict_size);
+uint8_t *torrent_generate_peer_id(void);
 
 #endif

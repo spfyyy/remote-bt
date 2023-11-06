@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <openssl/rand.h>
 #include <openssl/sha.h>
 #include "bencode.h"
 #include "torrent.h"
@@ -97,13 +98,30 @@ torrent_metadata *torrent_allocate_metadata_from_dictionary(uint8_t *dict, size_
 	metadata->announce = (char *)(data + metadata_size);
 	metadata->name = (char *)(data + metadata_size + announce_size);
 	metadata->pieces = (char *)(data + metadata_size + announce_size + name_size);
-	metadata->info_hash = (uint8_t *)(data + metadata_size + announce_size + name_size + pieces_size);
+	metadata->info_hash_bytes = (uint8_t *)(data + metadata_size + announce_size + name_size + pieces_size);
 	memcpy(metadata->announce, announce, announce_length);
 	memcpy(metadata->name, name, name_length);
 	memcpy(metadata->pieces, pieces, pieces_length);
-	SHA1(info, info_size, metadata->info_hash);
+	SHA1(info, info_size, metadata->info_hash_bytes);
 	metadata->piece_length = piece_length;
 	metadata->length = length;
 	metadata->is_multifile = 0;
 	return metadata;
+}
+
+uint8_t *torrent_generate_peer_id(void)
+{
+	uint8_t *peer_id = (uint8_t *)calloc(PEER_ID_SIZE, sizeof(uint8_t));
+	if (peer_id == NULL)
+	{
+		return NULL;
+	}
+
+	if (RAND_bytes(peer_id, PEER_ID_SIZE) != 1)
+	{
+		free(peer_id);
+		return NULL;
+	}
+
+	return peer_id;
 }

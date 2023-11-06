@@ -15,21 +15,48 @@
 #define REMOTE_BT_BUFFER_SIZE 1024 * 4096
 #endif
 
+static uint8_t *peer_id_bytes;
+static char *peer_id;
+
 // utility methods
 static ssh_session start_ssh_connection(void);
 static void end_ssh_connection(ssh_session in_remote_session);
 static int run_remote_command(ssh_session in_remote_session, char *in_command, u8_array *out_stdout_data);
 static int fetch_torrent_file(ssh_session in_remote_session, char *in_link, u8_array *out_torrent);
 static char *allocate_command(char *in_format, ...);
+static char *allocate_urlencoded_string(uint8_t *bytes, size_t bytes_size);
 
 int remote_bt_init(void)
 {
+	peer_id_bytes = torrent_generate_peer_id();
+	if (peer_id_bytes == NULL)
+	{
+		fprintf(stderr, "failed to generate peer id\n");
+		return 1;
+	}
+
+	peer_id = allocate_urlencoded_string(peer_id_bytes, PEER_ID_SIZE);
+	if (peer_id == NULL)
+	{
+		fprintf(stderr, "failed to urlencode peer id\n");
+		free(peer_id_bytes);
+		return 1;
+	}
+
 	// initialize downloads/threads
 	return 0;
 }
 
 void remote_bt_shutdown(void)
 {
+	if (peer_id_bytes != NULL)
+	{
+		free(peer_id_bytes);
+	}
+	if (peer_id != NULL)
+	{
+		free(peer_id);
+	}
 	// shutdown downloads/threads
 }
 
@@ -291,4 +318,28 @@ static char *allocate_command(char *in_format, ...)
 
 	va_end(arglist);
 	return command;
+}
+
+static char *allocate_urlencoded_string(uint8_t *bytes, size_t bytes_size)
+{
+	size_t allocated_size = bytes_size*3+1;
+	char *string = (char *)calloc(allocated_size, sizeof(char));
+	if (string == NULL)
+	{
+		return NULL;
+	}
+
+	size_t pos = 0;
+	for (int i = 0; i < bytes_size && pos < allocated_size-3; ++i)
+	{
+		int len = snprintf(string+pos, allocated_size-pos, "%%%02X", bytes[i]);
+		if (len != 3)
+		{
+			free(string);
+			return NULL;
+		}
+		pos += 3;
+	}
+
+	return string;
 }
