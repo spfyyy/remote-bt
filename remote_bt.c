@@ -25,6 +25,7 @@ static int run_remote_command(ssh_session in_remote_session, char *in_command, u
 static int fetch_torrent_file(ssh_session in_remote_session, char *in_link, u8_array *out_torrent);
 static char *allocate_command(char *in_format, ...);
 static char *allocate_urlencoded_string(uint8_t *bytes, size_t bytes_size);
+static int tracker_start(ssh_session in_remote_session, torrent_metadata *in_torrent, uint8_t **out_response, size_t *out_response_size);
 
 int remote_bt_init(void)
 {
@@ -83,20 +84,37 @@ int remote_bt_download(char *link)
 		return 1;
 	}
 
-	end_ssh_connection(remote_session);
-
 	torrent_metadata *t = torrent_allocate_metadata_from_dictionary(torrent_raw.data, torrent_raw.size);
 	free(torrent_raw.data);
 	if (t == NULL)
 	{
 		fprintf(stderr, "failed to parse torrent metadata\n");
+		end_ssh_connection(remote_session);
 		return 1;
 	}
 
 	fprintf(stdout, "name: %s\n", t->name);
 	fprintf(stdout, "announce: %s\n", t->announce);
 	fprintf(stdout, "is_multifile: %s\n", t->is_multifile ? "true" : "false");
+
+	uint8_t *tracker_dict;
+	size_t tracker_dict_size;
+	if (tracker_start(remote_session, t, &tracker_dict, &tracker_dict_size) != 0)
+	{
+		fprintf(stderr, "failed to start with tracker\n");
+		free(t);
+		end_ssh_connection(remote_session);
+		return 1;
+	}
+
+	char *tracker_response = (char *)calloc(tracker_dict_size+1, sizeof(char));
+	memcpy(tracker_response, tracker_dict, tracker_dict_size);
+	free(tracker_dict);
+	fprintf(stdout, "tracker start response: %s\n", tracker_response);
+
+	free(tracker_response);
 	free(t);
+	end_ssh_connection(remote_session);
 	return 0;
 }
 
@@ -286,12 +304,41 @@ static int fetch_torrent_file(ssh_session in_remote_session, char *in_link, u8_a
 	char *curl_command = allocate_command("curl --output - '%s'", in_link);
 	if (curl_command == NULL)
 	{
-		fprintf(stderr, "failed to allocate curl command\n");
+		fprintf(stderr, "failed to allocate curl command to fetch torrent\n");
 		return 1;
 	}
 
 	int result_code = run_remote_command(in_remote_session, curl_command, out_torrent);
 	free(curl_command);
+	return result_code;
+}
+
+static int tracker_start(ssh_session in_remote_session, torrent_metadata *in_torrent, uint8_t **out_response, size_t *out_response_size)
+{
+	char *info_hash = allocate_urlencoded_string(in_torrent->info_hash_bytes, INFO_HASH_SIZE);
+	if (info_hash == NULL)
+	{
+		fprintf(stdout, "could not allocate urlencoded info hash\n");
+		return 1;
+	}
+
+	char *curl_command = allocate_command("curl --output - '%s?info_hash=%s&peer_id=%s&port=%d&uploaded=%d&downloaded=%d&left=%d&event=started'", in_torrent->announce, info_hash, peer_id, 6881, 0, 0, 0);
+	free(info_hash);
+	if (curl_command == NULL)
+	{
+		fprintf(stderr, "failed to allocate curl command to start torrent\n");
+		return 1;
+	}
+
+	u8_array ssh_buffer;
+	int result_code = run_remote_command(in_remote_session, curl_command, &ssh_buffer);
+	free(curl_command);
+
+	if (result_code == 0)
+	{
+		*out_response = ssh_buffer.data;
+		*out_response_size = ssh_buffer.size;
+	}
 	return result_code;
 }
 

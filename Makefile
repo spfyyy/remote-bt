@@ -30,27 +30,23 @@ endif
 
 ifdef ComSpec
 build/remote_bt.lib build/remote_bt.dll: build/remote_bt$(O) build/torrent$(O) build/bencode$(O)
-	LINK /DLL $^ ssh.lib libcrypto.lib /OUT:build\remote_bt.dll /IMPLIB:build\remote_bt.dll
+	LINK /DLL $^ ssh.lib libcrypto.lib /OUT:build\remote_bt.dll /IMPLIB:build\remote_bt.lib
 else
 build/libremote_bt.so: build/remote_bt$(O) build/torrent$(O) build/bencode$(O)
 	$(CC) $(CFLAGS) $(OUTPUT) -shared $^ -lssh
 endif
 
-build/remote_bt$(O): build/ remote_bt.c remote_bt.h types.h ssh_config.c torrent.h
+build/remote_bt$(O): build remote_bt.c remote_bt.h types.h ssh_config.c torrent.h
 	$(CC) $(CFLAGS) $(COMPILE) $(OUTPUT) remote_bt.c
 
-build/torrent$(O): build/ torrent.c torrent.h bencode.h
+build/torrent$(O): build torrent.c torrent.h bencode.h
 	$(CC) $(CFLAGS) $(COMPILE) $(OUTPUT) torrent.c
 
-build/bencode$(O): build/ bencode.c bencode.h
+build/bencode$(O): build bencode.c bencode.h
 	$(CC) $(CFLAGS) $(COMPILE) $(OUTPUT) bencode.c
 
-build/:
-	mkdir build
+build:
+	mkdir "build"
 
 clean:
-ifdef ComSpec
-	rm build/*$(O) build/*.pdb build/*.ilk build/*.ilk build/*.lib build/*.dll build/*.exe
-else
 	rm build/*
-endif
